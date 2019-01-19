@@ -1,0 +1,18 @@
+#!/usr/bin/env python
+#-*- coding: utf-8 -*-
+
+import tile_info
+
+#GLOBAL VARS
+MAP_TILES = []
+CANVAS_WIDTH = 100
+CANVAS_HEIGHT = 100
+WINDOW_WIDTH = 1200
+WINDOW_HEIGHT = 700
+
+REFRESH_FREQ = 100
+FORCED_FPS = 30
+
+COLOR_PALETTE = tile_info.LANDSCAPE_COLOR_LIST
+
+EIGHT_NEIGHBOURS = True
