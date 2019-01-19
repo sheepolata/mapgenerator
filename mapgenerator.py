@@ -96,22 +96,23 @@ def main():
     # main_surface_width, main_surface_height = 860, 680
     # screen_width, screen_height = int(monitor.width*0.8), int(monitor.height*0.8)
     screen_width, screen_height = parameters.WINDOW_WIDTH, parameters.WINDOW_HEIGHT
-    # info_surface_width, info_surface_height = int(screen_width*0.25), int(screen_height)
-    # main_surface_width, main_surface_height = int(screen_width*0.75), int(screen_height)
+    main_surface_width, main_surface_height = int(screen_width*0.75), int(screen_height)
+    info_surface_width, info_surface_height = int(screen_width*0.25), int(screen_height)
     os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % ((monitor.width/2)-(screen_width/2),(monitor.height/2)-(screen_height/2))
     
     window = pygame.display.set_mode((screen_width, screen_height))
     caption = "Paint Generator"
     pygame.display.set_caption(caption)
 
-    screen = pygame.Surface((screen_width, screen_height))
+    screen = pygame.Surface((main_surface_width, main_surface_height))
+    info_surf = pygame.Surface((info_surface_width, info_surface_height))
 
 
     #INIT
     for i in xrange(0, parameters.CANVAS_WIDTH):
         for j in xrange(0, parameters.CANVAS_HEIGHT):
             index = len(parameters.MAP_TILES)
-            maptile = MapTile(i * (screen_width/parameters.CANVAS_WIDTH), j * (screen_height/parameters.CANVAS_HEIGHT), int(screen_width/parameters.CANVAS_WIDTH), int(screen_height/parameters.CANVAS_HEIGHT), index)
+            maptile = MapTile(i * (main_surface_width/parameters.CANVAS_WIDTH), j * (main_surface_height/parameters.CANVAS_HEIGHT), int(main_surface_width/parameters.CANVAS_WIDTH), int(main_surface_height/parameters.CANVAS_HEIGHT), index)
             parameters.MAP_TILES.append(maptile)
     for mt in parameters.MAP_TILES:
         for n in utils.getNeighboursFrom1D(mt.index, parameters.MAP_TILES, parameters.CANVAS_WIDTH, parameters.CANVAS_HEIGHT):
@@ -249,7 +250,10 @@ def main():
             pygame.draw.lines(screen, tile_info.WHITE, False, [x.rect.center for x in test_path], 1)
 
         #Blit and Flip surfaces
+        info_surf.fill(tile_info.WHITE)
         window.blit(screen, (0, 0))
+        window.blit(info_surf, (main_surface_width, 0))
+
 
         pygame.display.flip()
 
