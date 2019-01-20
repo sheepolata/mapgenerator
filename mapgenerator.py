@@ -27,11 +27,9 @@ class MapTile(object):
         self.index = index
 
         # self.color = (int(random.random() * 255), int(random.random() * 255), int(random.random() * 255))
-        self.color = random.choice(parameters.COLOR_PALETTE)
+        self.randomise()
 
         self.rect = pygame.Rect(self.x, self.y, self.w, self.h)
-
-        self.color_fixed = False
 
         self.distance_to_neighbours = {}
 
@@ -40,7 +38,12 @@ class MapTile(object):
         self.randomEffectSettings()
 
     def randomise(self):
-        self.color = random.choice(parameters.COLOR_PALETTE)
+        if parameters.COLOR_PROBA == None:
+            self.color = random.choice(parameters.COLOR_PALETTE)
+        else:
+            # print(parameters.COLOR_PALETTE)
+            # print(parameters.COLOR_PROBA)
+            self.color = tuple(np.random.choice(np.array(parameters.COLOR_PALETTE,dtype='i,i,i'), p=parameters.COLOR_PROBA))
         self.color_fixed = False
 
     def getPose(self):
