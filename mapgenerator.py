@@ -36,7 +36,9 @@ class MapTile(object):
         self.distance_to_neighbours = {}
 
         self.selected = False
-        
+        self.effect = True
+        self.randomEffectSettings()
+
     def randomise(self):
         self.color = random.choice(parameters.COLOR_PALETTE)
         self.color_fixed = False
@@ -48,20 +50,57 @@ class MapTile(object):
 
         if not self.color_fixed:
             neighs = utils.getNeighboursFrom1D(self.index, parameters.MAP_TILES, parameters.CANVAS_WIDTH, parameters.CANVAS_HEIGHT)
-            if random.random() < 0.05:
-                self.color = random.choice([c.color for c in neighs])
-                # self.color_fixed = True
-            else:
-                # self.color = random.choice(parameters.COLOR_PALETTE)
-                self.color = random.choice([c.color for c in neighs])
+            
+            self.color = random.choice([c.color for c in neighs])
+
+            self.randomEffectSettings()
         else:
             pass
+
+    def randomEffectSettings(self):
+        self.effect_random_placement = (random.randrange(-4, 4), random.randrange(-4, 4))
+        
+        self.nb_grass = random.randint(2,4)
+        self.grass_coord = []
+        self.grass_size  = []
+        for i in xrange(1,self.nb_grass):
+            self.grass_coord.append((random.randrange(-6, 6), random.randrange(-6, 6)))
+            self.grass_size.append(random.randint(2, 5))
+
+        self.effect_size = 0
+        if self.getType() == "mountain":
+            self.effect_size = random.randrange(5, 8)
+        if self.getType() == "forest":
+            self.effect_size = random.randrange(2, 5)
+        if self.getType() == "hill":
+            self.effect_size = random.randrange(2, 6)
+            
 
     def draw(self, screen):
         pygame.draw.rect(screen, self.color, self.rect)
         if self.selected:
             pygame.draw.rect(screen, tile_info.RED, self.rect, 2)
             print(self.toString())
+        if self.effect:
+            if self.getType() == "mountain":
+                pygame.draw.polygon(screen, 
+                                    tile_info.BROWN_EFFECT, 
+                                    utils.trianglePointsFromCenter((self.rect.center[0] + self.effect_random_placement[0], self.rect.center[1] + self.effect_random_placement[1]), self.effect_size))
+            if self.getType() == "forest":
+                pygame.draw.polygon(screen, 
+                                    tile_info.GREEN_3, 
+                                    utils.trianglePointsFromCenter((self.rect.center[0] + self.effect_random_placement[0], self.rect.center[1] + self.effect_random_placement[1]), self.effect_size))
+            if self.getType() == "hill":
+                pygame.draw.polygon(screen, 
+                                    tile_info.OLIVE_EFFECT, 
+                                    utils.roughSemicirclePointsFromCenter((self.rect.center[0] + self.effect_random_placement[0], self.rect.center[1] + self.effect_random_placement[1]), self.effect_size))
+            if self.getType() == "plain":
+                for i in xrange(0,self.nb_grass-1):
+                    pygame.draw.line(screen,
+                                    tile_info.GREEN_EFFECT,
+                                    (self.rect.center[0] + self.grass_coord[i][0], self.rect.center[1] + self.grass_coord[i][1]),
+                                    (self.rect.center[0] + self.grass_coord[i][0], self.rect.center[1] + self.grass_coord[i][1] + self.grass_size[i])
+                                    )
 
     def getType(self):
         return tile_info.COLOR_TO_TYPE[self.color]

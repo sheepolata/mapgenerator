@@ -144,3 +144,30 @@ def getNeighboursFrom1D(elem_i, list=parameters.MAP_TILES, grid_w=parameters.CAN
 def isDiagonalNeighbour(a, b):
     return ((b[0] == a[0] - 1 or b[0] == a[0] + 1)
             and (b[1] == a[1] - 1 or b[1] == a[1] + 1))
+
+def trianglePointsFromCenter(centre, size):
+
+    x1 = centre[0] + (size * math.cos(math.pi/3))
+    y1 = centre[1] + (size * math.sin(math.pi/3))
+
+    x2 = centre[0] + (size * math.cos((2*math.pi)/3))
+    y2 = centre[1] + (size * math.sin((2*math.pi)/3))
+
+    x3 = centre[0] + (size * math.cos(-math.pi/2))
+    y3 = centre[1] + (size * math.sin(-math.pi/2))
+
+    return [(x1, y1), (x2, y2), (x3, y3)]
+
+def roughSemicirclePointsFromCenter(centre, size):
+
+    res = []
+
+    resolution = 8
+
+    for i in range(0,resolution+1):
+        x = centre[0] + (size * math.cos(-(i*math.pi)/resolution))
+        y = centre[1] + (size * math.sin(-(i*math.pi)/resolution))
+        res.append((x, y))
+
+    return res
+    
