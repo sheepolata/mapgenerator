@@ -35,13 +35,22 @@ ALL_COLOR_LIST = [BLACK, WHITE, RED, RED_2, RED_3, LIME, BLUE, BLUE_2, BLUE_3,
 
 LANDSCAPE_COLOR_LIST = [BLUE, NAVY, GREEN, GREEN_2, YELLOW, BROWN, OLIVE]
 LANDSCAPE_ISLANDS    = {
-                        BLUE:0.4,
-                        NAVY:0.15,
-                        GREEN:0.15,
-                        GREEN_2:0.1,
-                        YELLOW:0.1,
-                        BROWN:0.05,
-                        OLIVE:0.05
+                        BLUE:0.42,
+                        NAVY:0.10,
+                        GREEN:0.2,
+                        GREEN_2:0.07,
+                        YELLOW:0.14,
+                        BROWN:0.07,
+                        OLIVE:0.0
+                    }
+LANDSCAPE_MOUNTAINS  = {
+                        BLUE:0.05,
+                        NAVY:0.02,
+                        GREEN:0.1,
+                        GREEN_2:0.21,
+                        YELLOW:0.07,
+                        BROWN:0.35,
+                        OLIVE:0.2
                     }
 
 COLOR_TO_TYPE = {
@@ -75,12 +84,12 @@ COLOR_TO_TYPE = {
 
 TYPE_TO_COST = {
     "unknow"    : 1.0,
-    "sea"       : 16.0,
-    "ocean"     : 24.0,
+    "sea"       : 24.0,
+    "ocean"     : 32.0,
     "plain"     : 1.0,
     "forest"    : 4.0,
     "desert"    : 8.0,
-    "hill"      : 6.0,
+    "hill"      : 4.0,
     "mountain"  : 16.0
 }
 
