@@ -71,7 +71,8 @@ def astar(_start, _goal, maptiles=parameters.MAP_TILES, forbidden=[]):
             #May add utils.distance2p(current.getPose(), _neighbour.getPose()) to cost BUT decrease perf quite a lot
             tentative_gScore = (g_score[current] 
                                 + _neighbour.getCost() 
-                                + (1 if (not utils.isDiagonalNeighbour(current.getPose(), _neighbour.getPose())) else round(sqrt(2),2))
+                                + (1*((_neighbour.h+_neighbour.w)/2) if (not utils.isDiagonalNeighbour(current.getPose(), _neighbour.getPose()))
+                                    else sqrt(2)*((_neighbour.h+_neighbour.w)/2))
                                 )
             if tentative_gScore >= g_score[_neighbour] or _neighbour.getType() in forbidden:
                 continue

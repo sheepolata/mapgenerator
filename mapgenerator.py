@@ -142,8 +142,8 @@ def main():
     # main_surface_width, main_surface_height = 860, 680
     # screen_width, screen_height = int(monitor.width*0.8), int(monitor.height*0.8)
     screen_width, screen_height = parameters.WINDOW_WIDTH, parameters.WINDOW_HEIGHT
-    main_surface_width, main_surface_height = int(screen_width*0.75), int(screen_height)
-    info_surface_width, info_surface_height = int(screen_width*0.25), int(screen_height)
+    main_surface_width, main_surface_height = int(screen_width*parameters.MAIN_WINDOW_PROPORTION), int(screen_height)
+    info_surface_width, info_surface_height = int(screen_width*(1-parameters.MAIN_WINDOW_PROPORTION)), int(screen_height)
     os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % ((monitor.width/2)-(screen_width/2),(monitor.height/2)-(screen_height/2))
     
     window = pygame.display.set_mode((screen_width, screen_height))
