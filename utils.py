@@ -1,6 +1,7 @@
 import math
 import threading
 import parameters
+import random
 
 class Pose(object):
     """docstring for Pose"""
@@ -171,3 +172,14 @@ def roughSemicirclePointsFromCenter(centre, size):
 
     return res
     
+def getEdgeCoord(list=parameters.MAP_TILES, grid_w=parameters.CANVAS_WIDTH, grid_h=parameters.CANVAS_HEIGHT):
+    x, y = 0, 0
+
+    if random.random() < 0.5:
+        x = random.randint(0, grid_w)
+        y = random.choice([0, grid_h-1])
+    else:
+        x = random.choice([0, grid_w-1])
+        y = random.randint(0, grid_h)
+
+    return (x, y)

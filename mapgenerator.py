@@ -38,7 +38,7 @@ class MapTile(object):
         self.randomEffectSettings()
 
     def randomise(self):
-        if parameters.COLOR_PROBA == None:
+        if parameters.DEFAULT_DRAWING:
             self.color = random.choice(parameters.COLOR_PALETTE)
         else:
             # print(parameters.COLOR_PALETTE)
@@ -119,12 +119,16 @@ class MapTile(object):
                     .format(self.x, self.y, self.getType(), self.getCost()))
 
 class Group(object):
-    def __init__(self, x, y, count=int(random.random()*50)+30, speed=1):
+    def __init__(self, c, population_count=int(random.random()*50)+30, speed=1):
         super(Group, self).__init__()
-        self.x = x
-        self.y = y
-        self.count = count
+        self.x = c[0]
+        self.y = c[1]
+        self.population_count = population_count
         self.speed = speed
+
+    def draw(self, screen):
+        pygame.draw.circle(screen, tile_info.WHITE, (self.x, self.y), 8)
+        pygame.draw.circle(screen, tile_info.BLACK, (self.x, self.y), 8, 4)
         
 
 def main():
@@ -147,14 +151,14 @@ def main():
     pygame.display.set_caption(caption)
 
     screen = pygame.Surface((main_surface_width, main_surface_height))
-    info_surf = pygame.Surface((info_surface_width, info_surface_height))
+    info_surface = pygame.Surface((info_surface_width, info_surface_height))
 
 
     #INIT
     for i in xrange(0, parameters.CANVAS_WIDTH):
         for j in xrange(0, parameters.CANVAS_HEIGHT):
             index = len(parameters.MAP_TILES)
-            maptile = MapTile(i * (main_surface_width/parameters.CANVAS_WIDTH), j * (main_surface_height/parameters.CANVAS_HEIGHT), int(main_surface_width/parameters.CANVAS_WIDTH), int(main_surface_height/parameters.CANVAS_HEIGHT), index)
+            maptile = MapTile(i * (main_surface_width/parameters.CANVAS_WIDTH), j * (main_surface_height/parameters.CANVAS_HEIGHT), round(main_surface_width/parameters.CANVAS_WIDTH), round(main_surface_height/parameters.CANVAS_HEIGHT), index)
             parameters.MAP_TILES.append(maptile)
     for mt in parameters.MAP_TILES:
         for n in utils.getNeighboursFrom1D(mt.index, parameters.MAP_TILES, parameters.CANVAS_WIDTH, parameters.CANVAS_HEIGHT):
@@ -164,11 +168,17 @@ def main():
     #RUN
     run = True
     start = False
-    groups_launched = False
     step_counter = 0
-    pause = False
+    paused = False
     selected_tile = None
     fixed = False
+    stop_generation = False
+    generation_done = False
+    simulation_started = False
+    group_lauched = False
+
+    t_loop = 0.01
+    q_time = []
 
     #TEST VARS
     test_path = None
@@ -179,8 +189,14 @@ def main():
     while run:
         clock.tick(parameters.FORCED_FPS)
 
+        start_time = time.time()
+        
+        t_update = start_time #time.time() if moved from this line
+
         step_counter += 1
         if(step_counter%100000 == 0): step_counter = 0
+
+        info_surface.fill(tile_info.WHITE)
 
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN:
@@ -189,26 +205,33 @@ def main():
                 if event.key == pygame.K_r and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     for cp in parameters.MAP_TILES:
                         cp.randomise()
-                    groups_launched = False
+                    
+                    simulation_started = False
+                    generation_done = False
+                    stop_generation = False
+
                     test_path = None
+
                     fixed = False
-                if event.key == pygame.K_r and groups_launched:
+
+                    del parameters.GROUP_LIST[:]
+                    group_lauched = False
+
+                if event.key == pygame.K_r and simulation_started:
                     test_path = None
                 if event.key == pygame.K_f:
                     fix_tiles()
                 if event.key == pygame.K_SPACE:
-                    pause = not pause
+                    paused = not paused
                 if event.key == pygame.K_SPACE and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                    for cp in parameters.MAP_TILES:
-                        cp.color_fixed = True
-                    groups_launched = True
+                    stop_generation = True
                 if event.key == pygame.K_RIGHT:
-                    if pause:
+                    if paused:
                         pass
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 #LMB
                 if event.button == 1:
-                    if groups_launched:
+                    if simulation_started:
                         for cp in parameters.MAP_TILES:
                             if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos:
                                 # selected_tile = cp
@@ -222,7 +245,7 @@ def main():
                     pass
                 #RMB
                 if event.button == 3:
-                    if groups_launched:
+                    if simulation_started:
                         for cp in parameters.MAP_TILES:
                             if cp.collidepoint(pygame.mouse.get_pos()) and cp != start_pos:
                                 # selected_tile = cp
@@ -230,7 +253,7 @@ def main():
                                 pos_changed = True
                                 break
                     pass
-            elif pygame.mouse.get_pressed()[0] and groups_launched:
+            elif pygame.mouse.get_pressed()[0] and simulation_started:
                 try:
                     for cp in parameters.MAP_TILES:
                         if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos and cp != start_pos:
@@ -239,7 +262,7 @@ def main():
                             break
                 except AttributeError:
                     pass
-            elif pygame.mouse.get_pressed()[2] and groups_launched:
+            elif pygame.mouse.get_pressed()[2] and simulation_started:
                 try:
                     for cp in parameters.MAP_TILES:
                         if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos and cp != start_pos:
@@ -250,13 +273,28 @@ def main():
                     pass
 
         #UPDATE
+        if not generation_done and step_counter%100==0:
+            pass
+
+        if stop_generation and not generation_done:
+            for cp in parameters.MAP_TILES:
+                cp.color_fixed = True
+            simulation_started = True
+            generation_done = True
+
         if selected_tile != None:
             selected_tile.selected = True
-        if step_counter % max(int(parameters.FORCED_FPS/parameters.REFRESH_FREQ), 1) == 0 and not pause:
+        if step_counter % max(int(parameters.FORCED_FPS/parameters.REFRESH_FREQ), 1) == 0 and not paused:
             for cp in parameters.MAP_TILES:
                 cp.update()
 
-        if groups_launched:
+        if simulation_started:
+
+            if not group_lauched:
+                grp = Group(utils.getEdgeCoord())
+                parameters.GROUP_LIST.append(grp)
+                group_lauched = True
+
             if not fixed:
                 fix_tiles()
                 fixed = True
@@ -268,18 +306,23 @@ def main():
                 test_path = pf.astar(start_pos, goal_pos, forbidden=[]) #
                 print(pf.computePathLength(test_path))
 
-                # print("No path from {} to {}".format(start_pos.getPose(), goal_pos.getPose()))
-                
+                # print("No path from {} to {}".format(start_pos.getPose(), goal_pos.getPose()))       
 
-        # if step_counter % 30*10 == 0 and not pause:
+        # if step_counter % 30*10 == 0 and not paused:
         #     for x in xrange(0, int(0.05*(parameters.CANVAS_HEIGHT*parameters.CANVAS_WIDTH))):
         #         random.choice(parameters.MAP_TILES).randomise()
 
+        t_update = time.time() - t_update
+
         #DRAW
+        t_display = time.time()
         for cp in parameters.MAP_TILES:
             if cp != selected_tile and cp.selected:
                 cp.selected = False
             cp.draw(screen)
+
+        for grp in parameters.GROUP_LIST:
+            grp.draw(screen)
 
         if test_path != None and len(test_path) > 1:
             pygame.draw.circle(screen, tile_info.GREEN, start_pos.rect.center, 5)
@@ -291,13 +334,41 @@ def main():
             pygame.draw.lines(screen, tile_info.BLACK, False, [x.rect.center for x in test_path], 3)
             pygame.draw.lines(screen, tile_info.WHITE, False, [x.rect.center for x in test_path], 1)
 
+        t_display = time.time() - t_display
+
+        #DRAW INFO PANEL
+
+        #info text
+        fontsize = int(info_surface_height*0.02)
+        font = pygame.font.SysFont('Sans', fontsize)
+
+        t_temp = time.time()
+        diff_t = (t_temp - start_time) if (t_temp - start_time) > 0 else 0.0001
+
+        fps = round(1.0 / t_loop, 0)
+        q_time.append(round(fps))
+        if len(q_time) >= 50 : q_time = q_time[1:]
+
+        tmp = int(round(np.mean(q_time)))
+        text = "{0:03d} LPS (~{1:.4f}s/loop)".format(tmp, round(diff_t, 4))#, len(str(tmp)) - len(str(int(tmp))) - 2 )
+        if paused:
+            text += " PAUSED"
+        text2 = "{0:03d}% logic, {1:03d}% display".format(int(round((round(t_update, 4) / diff_t)*100)), int(round((round(t_display, 4) / diff_t)*100)))
+        displ_text = font.render(text, True, tile_info.BLACK)
+        displ_text2 = font.render(text2, True, tile_info.BLACK)
+        info_surface.blit(displ_text, (10, fontsize*1.2))
+        shift = fontsize*1.2
+        info_surface.blit(displ_text2, (10, fontsize*1.2 + shift))
+        shift = fontsize*1.2 + shift
+
         #Blit and Flip surfaces
-        info_surf.fill(tile_info.WHITE)
         window.blit(screen, (0, 0))
-        window.blit(info_surf, (main_surface_width, 0))
+        window.blit(info_surface, (main_surface_width, 0))
 
 
         pygame.display.flip()
+
+        t_loop = time.time() - start_time
 
 def fix_tiles():
     for mt in parameters.MAP_TILES:
