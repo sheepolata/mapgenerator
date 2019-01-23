@@ -199,8 +199,10 @@ def main():
         info_surface.fill(tile_info.WHITE)
 
         for event in pygame.event.get():
+            if event.type == pygame.QUIT :
+                    run = False
             if event.type == pygame.KEYDOWN:
-                if event.key == K_ESCAPE :
+                if event.key == K_ESCAPE:
                     run = False
                 if event.key == pygame.K_r and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     for cp in parameters.MAP_TILES:
