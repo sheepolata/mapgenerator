@@ -24,4 +24,6 @@ COLOR_PALETTE = BIOME.keys()
 COLOR_PROBA   = BIOME.values()
 # COLOR_PROBA   = None
 
+FAST_DISPLAY = False
+
 EIGHT_NEIGHBOURS = True

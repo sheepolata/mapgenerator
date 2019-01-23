@@ -79,12 +79,12 @@ class MapTile(object):
             self.effect_size = random.randrange(2, 6)
             
 
-    def draw(self, screen):
+    def draw(self, screen, _FAST_DISPLAY):
         pygame.draw.rect(screen, self.color, self.rect)
         if self.selected:
             pygame.draw.rect(screen, tile_info.RED, self.rect, 2)
             print(self.toString())
-        if self.effect:
+        if self.effect and not _FAST_DISPLAY:
             if self.getType() == "mountain":
                 pygame.draw.polygon(screen, 
                                     tile_info.BROWN_EFFECT, 
@@ -221,8 +221,10 @@ def main():
 
                 if event.key == pygame.K_r and simulation_started:
                     test_path = None
-                if event.key == pygame.K_f:
-                    fix_tiles()
+                if event.key == pygame.K_f and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                    print fix_tiles()
+                elif event.key == pygame.K_f:
+                    parameters.FAST_DISPLAY = not parameters.FAST_DISPLAY
                 if event.key == pygame.K_SPACE:
                     paused = not paused
                 if event.key == pygame.K_SPACE and pygame.key.get_mods() & pygame.KMOD_CTRL:
@@ -298,7 +300,8 @@ def main():
                 group_lauched = True
 
             if not fixed:
-                fix_tiles()
+                tile_changed = fix_tiles()
+
                 fixed = True
             if test_path == None:
                 start_pos = random.choice(parameters.MAP_TILES)
@@ -318,23 +321,24 @@ def main():
 
         #DRAW
         t_display = time.time()
-        for cp in parameters.MAP_TILES:
-            if cp != selected_tile and cp.selected:
-                cp.selected = False
-            cp.draw(screen)
+        if not parameters.FAST_DISPLAY or (parameters.FAST_DISPLAY and step_counter%5 == 0):
+            for cp in parameters.MAP_TILES:
+                if cp != selected_tile and cp.selected:
+                    cp.selected = False
+                cp.draw(screen,  _FAST_DISPLAY=parameters.FAST_DISPLAY)
 
-        for grp in parameters.GROUP_LIST:
-            grp.draw(screen)
+            for grp in parameters.GROUP_LIST:
+                grp.draw(screen)
 
-        if test_path != None and len(test_path) > 1:
-            pygame.draw.circle(screen, tile_info.GREEN, start_pos.rect.center, 5)
-            pygame.draw.circle(screen, tile_info.BLACK, start_pos.rect.center, 5, 2)
-            pygame.draw.circle(screen, tile_info.RED, goal_pos.rect.center, 5)
-            pygame.draw.circle(screen, tile_info.BLACK, goal_pos.rect.center, 5, 2)
+            if test_path != None and len(test_path) > 1:
+                pygame.draw.circle(screen, tile_info.GREEN, start_pos.rect.center, 5)
+                pygame.draw.circle(screen, tile_info.BLACK, start_pos.rect.center, 5, 2)
+                pygame.draw.circle(screen, tile_info.RED, goal_pos.rect.center, 5)
+                pygame.draw.circle(screen, tile_info.BLACK, goal_pos.rect.center, 5, 2)
 
 
-            pygame.draw.lines(screen, tile_info.BLACK, False, [x.rect.center for x in test_path], 3)
-            pygame.draw.lines(screen, tile_info.WHITE, False, [x.rect.center for x in test_path], 1)
+                pygame.draw.lines(screen, tile_info.BLACK, False, [x.rect.center for x in test_path], 3)
+                pygame.draw.lines(screen, tile_info.WHITE, False, [x.rect.center for x in test_path], 1)
 
         t_display = time.time() - t_display
 
@@ -364,15 +368,18 @@ def main():
         shift = fontsize*1.2 + shift
 
         #Blit and Flip surfaces
-        window.blit(screen, (0, 0))
+        if not parameters.FAST_DISPLAY or (parameters.FAST_DISPLAY and step_counter%5 == 0):
+            window.blit(screen, (0, 0))
         window.blit(info_surface, (main_surface_width, 0))
 
 
-        pygame.display.flip()
+        # pygame.display.update([x.rect for x in parameters.MAP_TILES if not x.color_fixed] + [pygame.Rect(main_surface_width, 0, info_surface.get_width(), info_surface.get_height())])
+        pygame.display.update()
 
         t_loop = time.time() - start_time
 
 def fix_tiles():
+    changed = False
     for mt in parameters.MAP_TILES:
         d = {}
         for n in utils.getNeighboursFrom1D(elem_i=mt.index, eight_neigh=False):
@@ -380,8 +387,11 @@ def fix_tiles():
                 d[n.color] += 1
             else:
                 d[n.color] = 1
-        if not mt.color in d.keys():
+
+        if not mt.color in d.keys(): #or d[mt.color] <= 1:
             mt.color = max(d.iteritems(), key=operator.itemgetter(1))[0]
+            changed = True
+    return changed
 
 if __name__ == '__main__':
     main()
