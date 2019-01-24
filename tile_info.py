@@ -35,13 +35,13 @@ ALL_COLOR_LIST = [BLACK, WHITE, RED, RED_2, RED_3, LIME, BLUE, BLUE_2, BLUE_3,
 
 LANDSCAPE_COLOR_LIST = [BLUE, NAVY, GREEN, GREEN_2, YELLOW, BROWN, OLIVE]
 LANDSCAPE_ISLANDS    = {
-                        BLUE:0.42,
-                        NAVY:0.10,
+                        BLUE:0.44,
+                        NAVY:0.12,
                         GREEN:0.2,
-                        GREEN_2:0.07,
-                        YELLOW:0.14,
-                        BROWN:0.07,
-                        OLIVE:0.0
+                        GREEN_2:0.08,
+                        YELLOW:0.10,
+                        BROWN:0.05,
+                        OLIVE:0.01
                     }
 LANDSCAPE_MOUNTAINS  = {
                         BLUE:0.05,

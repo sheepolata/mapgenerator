@@ -16,7 +16,7 @@ import utils
 import parameters
 import pathfinding as pf
 
-class MapTile(object):
+class MapTile(pygame.sprite.Sprite):
     def __init__(self, x, y, w, h, index):
         super(MapTile, self).__init__()
         self.x = x
@@ -29,6 +29,8 @@ class MapTile(object):
         # self.color = (int(random.random() * 255), int(random.random() * 255), int(random.random() * 255))
         self.randomise()
 
+        self.image = pygame.Surface([self.w, self.h])
+        self.image.fill(self.color)
         self.rect = pygame.Rect(self.x, self.y, self.w, self.h)
 
         self.distance_to_neighbours = {}
@@ -38,19 +40,21 @@ class MapTile(object):
         self.randomEffectSettings()
 
     def randomise(self):
+        # t = time.time()
         if parameters.DEFAULT_DRAWING:
             self.color = random.choice(parameters.COLOR_PALETTE)
         else:
             # print(parameters.COLOR_PALETTE)
             # print(parameters.COLOR_PROBA)
-            self.color = tuple(np.random.choice(np.array(parameters.COLOR_PALETTE,dtype='i,i,i'), p=parameters.COLOR_PROBA))
+            # self.color = tuple(np.random.choice(np.array(parameters.COLOR_PALETTE,dtype='i,i,i'), p=parameters.COLOR_PROBA))
+            self.color = utils.weighted_choice(parameters.BIOME)
         self.color_fixed = False
+        # print (time.time() - t)
 
     def getPose(self):
         return (self.x, self.y)
 
     def update(self):
-
         if not self.color_fixed:
             neighs = utils.getNeighboursFrom1D(self.index, parameters.MAP_TILES, parameters.CANVAS_WIDTH, parameters.CANVAS_HEIGHT)
             
@@ -59,6 +63,9 @@ class MapTile(object):
             self.randomEffectSettings()
         else:
             pass
+
+        self.image.fill(self.color)
+
 
     def randomEffectSettings(self):
         self.effect_random_placement = (random.randrange(-4, 4), random.randrange(-4, 4))
@@ -80,10 +87,11 @@ class MapTile(object):
             
 
     def draw(self, screen, _FAST_DISPLAY):
-        pygame.draw.rect(screen, self.color, self.rect)
+        # pygame.draw.rect(screen, self.color, self.rect)
+        screen.blit(self.image, self.rect)
         if self.selected:
             pygame.draw.rect(screen, tile_info.RED, self.rect, 2)
-            print(self.toString())
+            # print(self.toString())
         if self.effect and not _FAST_DISPLAY:
             if self.getType() == "mountain":
                 pygame.draw.polygon(screen, 
@@ -118,17 +126,35 @@ class MapTile(object):
         return ("({}, {}) {} ({})"
                     .format(self.x, self.y, self.getType(), self.getCost()))
 
-class Group(object):
+class Caravan(pygame.sprite.Sprite):
     def __init__(self, c, population_count=int(random.random()*50)+30, speed=1):
-        super(Group, self).__init__()
+        # Call the parent class (Sprite) constructor
+        super(Caravan, self).__init__()
+
         self.x = c[0]
         self.y = c[1]
         self.population_count = population_count
         self.speed = speed
 
+
+        # Create an image of the block, and fill it with a color.
+        # This could also be an image loaded from the disk.
+        # self.image = pygame.Surface([width, height])
+        # self.image.fill(color)
+        self.image = pygame.image.load(os.path.join('Sprites', 'caravan.png'))
+        # self.image = pygame.transform.scale(self.image, (parameters.MAP_TILES[0].w, parameters.MAP_TILES[0].h))
+
+        # Fetch the rectangle object that has the dimensions of the image
+        # Update the position of this object by setting the values of rect.x and rect.y
+        self.rect = pygame.Rect(self.x, self.y,
+                                self.image.get_rect().size[0],
+                                self.image.get_rect().size[1])
+        # self.rect = self.image.get_rect()
+
     def draw(self, screen):
-        pygame.draw.circle(screen, tile_info.WHITE, (self.x, self.y), 8)
-        pygame.draw.circle(screen, tile_info.BLACK, (self.x, self.y), 8, 4)
+        # pygame.draw.circle(screen, tile_info.WHITE, (self.x, self.y), 8)
+        # pygame.draw.circle(screen, tile_info.BLACK, (self.x, self.y), 8, 4)
+        screen.blit(self.image, self.rect)
         
 
 def main():
@@ -142,8 +168,8 @@ def main():
     # main_surface_width, main_surface_height = 860, 680
     # screen_width, screen_height = int(monitor.width*0.8), int(monitor.height*0.8)
     screen_width, screen_height = parameters.WINDOW_WIDTH, parameters.WINDOW_HEIGHT
-    main_surface_width, main_surface_height = int(screen_width*parameters.MAIN_WINDOW_PROPORTION), int(screen_height)
-    info_surface_width, info_surface_height = int(screen_width*(1-parameters.MAIN_WINDOW_PROPORTION)), int(screen_height)
+    main_surface_width, main_surface_height = int(round(screen_width*parameters.MAIN_WINDOW_PROPORTION)), screen_height
+    info_surface_width, info_surface_height = int(round(screen_width*(1-parameters.MAIN_WINDOW_PROPORTION))), screen_height
     os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % ((monitor.width/2)-(screen_width/2),(monitor.height/2)-(screen_height/2))
     
     window = pygame.display.set_mode((screen_width, screen_height))
@@ -158,7 +184,10 @@ def main():
     for i in xrange(0, parameters.CANVAS_WIDTH):
         for j in xrange(0, parameters.CANVAS_HEIGHT):
             index = len(parameters.MAP_TILES)
-            maptile = MapTile(i * (main_surface_width/parameters.CANVAS_WIDTH), j * (main_surface_height/parameters.CANVAS_HEIGHT), round(main_surface_width/parameters.CANVAS_WIDTH), round(main_surface_height/parameters.CANVAS_HEIGHT), index)
+            maptile = MapTile(i * (main_surface_width/parameters.CANVAS_WIDTH), 
+                            j * (main_surface_height/parameters.CANVAS_HEIGHT), 
+                            int(round(float(main_surface_width)/float(parameters.CANVAS_WIDTH))), 
+                            int(round(float(main_surface_height)/float(parameters.CANVAS_HEIGHT))), index)
             parameters.MAP_TILES.append(maptile)
     for mt in parameters.MAP_TILES:
         for n in utils.getNeighboursFrom1D(mt.index, parameters.MAP_TILES, parameters.CANVAS_WIDTH, parameters.CANVAS_HEIGHT):
@@ -219,29 +248,34 @@ def main():
                     del parameters.GROUP_LIST[:]
                     group_lauched = False
 
+                    paused = False
+
                 if event.key == pygame.K_r and simulation_started:
                     test_path = None
                 if event.key == pygame.K_f and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     print fix_tiles()
                 elif event.key == pygame.K_f:
                     parameters.FAST_DISPLAY = not parameters.FAST_DISPLAY
-                if event.key == pygame.K_SPACE:
-                    paused = not paused
                 if event.key == pygame.K_SPACE and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     stop_generation = True
+                elif event.key == pygame.K_SPACE:
+                    paused = not paused
                 if event.key == pygame.K_RIGHT:
                     if paused:
                         pass
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 #LMB
-                if event.button == 1:
+                if event.button == 1 and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     if simulation_started:
                         for cp in parameters.MAP_TILES:
                             if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos:
-                                # selected_tile = cp
                                 start_pos = cp
                                 pos_changed = True
                                 break
+                elif event.button == 1:
+                    for cp in parameters.MAP_TILES:
+                        if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos:
+                            selected_tile = cp        
                     pass
                 #MMB
                 if event.button == 2:
@@ -249,6 +283,8 @@ def main():
                     pass
                 #RMB
                 if event.button == 3:
+                    selected_tile = None
+                if event.button == 3 and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     if simulation_started:
                         for cp in parameters.MAP_TILES:
                             if cp.collidepoint(pygame.mouse.get_pos()) and cp != start_pos:
@@ -257,24 +293,24 @@ def main():
                                 pos_changed = True
                                 break
                     pass
-            elif pygame.mouse.get_pressed()[0] and simulation_started:
-                try:
-                    for cp in parameters.MAP_TILES:
-                        if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos and cp != start_pos:
-                            start_pos = cp
-                            pos_changed = True
-                            break
-                except AttributeError:
-                    pass
-            elif pygame.mouse.get_pressed()[2] and simulation_started:
-                try:
-                    for cp in parameters.MAP_TILES:
-                        if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos and cp != start_pos:
-                            goal_pos = cp
-                            pos_changed = True
-                            break
-                except AttributeError:
-                    pass
+            # elif pygame.mouse.get_pressed()[0] and simulation_started:
+            #     try:
+            #         for cp in parameters.MAP_TILES:
+            #             if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos and cp != start_pos:
+            #                 start_pos = cp
+            #                 pos_changed = True
+            #                 break
+            #     except AttributeError:
+            #         pass
+            # elif pygame.mouse.get_pressed()[2] and simulation_started:
+            #     try:
+            #         for cp in parameters.MAP_TILES:
+            #             if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos and cp != start_pos:
+            #                 goal_pos = cp
+            #                 pos_changed = True
+            #                 break
+            #     except AttributeError:
+            #         pass
 
         #UPDATE
         if not generation_done and step_counter%100==0:
@@ -295,8 +331,9 @@ def main():
         if simulation_started:
 
             if not group_lauched:
-                grp = Group(utils.getEdgeCoord())
-                parameters.GROUP_LIST.append(grp)
+                for i in xrange(0,5):
+                    grp = Caravan(utils.getEdgeCoord(forbidden=["sea", "ocean"]))
+                    parameters.GROUP_LIST.append(grp)
                 group_lauched = True
 
             if not fixed:
@@ -348,7 +385,7 @@ def main():
 
         fps = round(1.0 / t_loop, 0)
         q_time.append(round(fps))
-        if len(q_time) >= 50 : q_time = q_time[1:]
+        if len(q_time) >= 20 : q_time = q_time[1:]
 
         tmp = int(round(np.mean(q_time)))
         text = "{0:03d} LPS (~{1:.4f}s/loop)".format(tmp, round(diff_t, 4))#, len(str(tmp)) - len(str(int(tmp))) - 2 )
@@ -361,6 +398,20 @@ def main():
         shift = fontsize*1.2
         info_surface.blit(displ_text2, (10, fontsize*1.2 + shift))
         shift = fontsize*1.2 + shift
+
+        shift = fontsize + shift
+
+        if selected_tile != None:
+            header = "Tile {} ({}, {})".format(selected_tile.index, selected_tile.x, selected_tile.y)
+            selected_tile_info = "{} ({})".format(selected_tile.getType(), selected_tile.getCost())
+
+            displ_header = font.render(header, True, tile_info.BLACK)
+            displ_selected_tile_info = font.render(selected_tile_info, True, tile_info.BLACK)
+
+            info_surface.blit(displ_header, (10, shift + fontsize + 2))
+            shift = shift + fontsize + 2
+            info_surface.blit(displ_selected_tile_info, (10, shift + fontsize + 2))
+            shift = shift + fontsize
 
         #Blit and Flip surfaces
         if not parameters.FAST_DISPLAY or (parameters.FAST_DISPLAY and step_counter%5 == 0):

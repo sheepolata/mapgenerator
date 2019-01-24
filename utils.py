@@ -2,6 +2,7 @@ import math
 import threading
 import parameters
 import random
+import numpy as np
 
 class Pose(object):
     """docstring for Pose"""
@@ -176,14 +177,36 @@ def roughSemicirclePointsFromCenter(centre, size):
 
     return res
     
-def getEdgeCoord(list=parameters.MAP_TILES, grid_w=parameters.CANVAS_WIDTH, grid_h=parameters.CANVAS_HEIGHT):
-    x, y = 0, 0
+def getEdgeCoord(_list=parameters.MAP_TILES, grid_w=parameters.CANVAS_WIDTH, grid_h=parameters.CANVAS_HEIGHT, forbidden=[]):
+    #k = i * width + j. Thus i = k / width, j = k % width
+
+    _x, _y = 0, 0
 
     if random.random() < 0.5:
-        x = random.randint(0, grid_w)
-        y = random.choice([0, grid_h-1])
+        _x = random.randint(0, grid_w)
+        _y = random.choice([0, grid_h-1])
     else:
-        x = random.choice([0, grid_w-1])
-        y = random.randint(0, grid_h)
+        _x = random.choice([0, grid_w-1])
+        _y = random.randint(0, grid_h)
 
-    return (x, y)
+    tile = _list[_x * grid_w + _y]
+
+    while tile.getType() in forbidden:
+        if random.random() < 0.5:
+            _x = random.randint(0, grid_w)
+            _y = random.choice([0, grid_h-1])
+        else:
+            _x = random.choice([0, grid_w-1])
+            _y = random.randint(0, grid_h)
+
+        tile = _list[_x * grid_w + _y]
+
+    return (tile.rect.x, tile.rect.y)
+
+def weighted_choice(weight_map):
+    values = weight_map.keys()
+    p = weight_map.values()
+
+    c = np.random.choice(range(0, len(values)), p=p)
+    # print c, " ", values[c]
+    return values[c]
