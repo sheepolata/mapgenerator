@@ -306,12 +306,7 @@ def main():
                 test_path = pf.astar(start_pos, goal_pos, forbidden=[]) #
                 print(pf.computePathLength(test_path))
 
-                # print("No path from {} to {}".format(start_pos.getPose(), goal_pos.getPose()))       
-
-        # if step_counter % 30*10 == 0 and not paused:
-        #     for x in xrange(0, int(0.05*(parameters.CANVAS_HEIGHT*parameters.CANVAS_WIDTH))):
-        #         random.choice(parameters.MAP_TILES).randomise()
-
+                # print("No path from {} to {}".format(start_pos.getPose(), goal_pos.getPose()))
         t_update = time.time() - t_update
 
         #DRAW
