@@ -90,7 +90,7 @@ def reconstructPath(came_from, current):
         current = came_from[current]
         total_path.append(current)
 
-    return total_path #+ [total_path[-1]]
+    return list(reversed(total_path)) #+ [total_path[-1]]
 
 def computePathLength(path):
     if not path:

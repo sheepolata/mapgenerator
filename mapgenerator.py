@@ -144,7 +144,7 @@ class Caravan(pygame.sprite.Sprite):
 
         self.population_count = population_count
         
-        self.speed = speed
+        self.speed_modifier = speed
 
         self.name = name
 
@@ -163,10 +163,52 @@ class Caravan(pygame.sprite.Sprite):
                                 self.image.get_rect().size[1])
         # self.rect = self.image.get_rect()
 
+        self.destination = None
+        self.route = []
+
+        self.tile_goto = None
+        self.walking_left = 0
+
+    #Choose the destination of the caravan if None
+    def choose_destination(self, forbidden=[]):
+        self.destination = utils.getRandomTile()
+        self.route = pf.astar(self.tile, self.destination, forbidden=[])
+
+    #Move to the next tile in the route or choose to change course or action
+    def next_step(self):
+        if self.destination == None or len(self.route) == 0:
+            self.choose_destination()
+
+        if self.tile_goto == None:
+            self.tile_goto = self.route[0]
+            self.walking_left = self.tile_goto.getCost() * self.speed_modifier * 2
+
+        if self.tile_goto != None and self.walking_left > 0:
+            self.walking_left -= 1
+            if self.walking_left <= 0:
+                self.set_next_tile()
+                self.tile_goto = None
+
+    def set_next_tile(self):
+        self.route = self.route[1:]
+        self.tile.caravan = None
+        self.tile = self.tile_goto
+        self.tile.caravan = self
+
+        self.x = self.tile.rect.center[0]
+        self.y = self.tile.rect.center[1]
+        self.rect = pygame.Rect(self.x-(self.image.get_rect().size[0]/2), 
+                                self.y-(self.image.get_rect().size[1]/2),
+                                self.image.get_rect().size[0],
+                                self.image.get_rect().size[1])
+
     def draw(self, screen):
         # pygame.draw.circle(screen, tile_info.WHITE, (self.x, self.y), 8)
         # pygame.draw.circle(screen, tile_info.BLACK, (self.x, self.y), 8, 4)
         screen.blit(self.image, self.rect)
+        if self.route != []:
+            pygame.draw.lines(screen, tile_info.BLACK, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 3)
+            pygame.draw.lines(screen, tile_info.WHITE, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 1)
         
 
 def main():
@@ -216,7 +258,7 @@ def main():
     stop_generation = False
     generation_done = False
     simulation_started = False
-    group_lauched = False
+    caravan_lauched = False
 
     t_loop = 0.01
     q_time = []
@@ -257,8 +299,8 @@ def main():
 
                     fixed = False
 
-                    del parameters.GROUP_LIST[:]
-                    group_lauched = False
+                    del parameters.CARAVAN_LIST[:]
+                    caravan_lauched = False
 
                     paused = False
 
@@ -351,26 +393,29 @@ def main():
 
         if simulation_started:
 
-            if not group_lauched:
+            if not caravan_lauched:
                 for i in xrange(0,5):
                     _t = utils.getEdgeTile(forbidden=["sea", "ocean"])
                     while _t.caravan != None:
                         _t = utils.getEdgeTile(forbidden=["sea", "ocean"])
-                    grp = Caravan(_t, name="caravan"+str(i))
-                    parameters.GROUP_LIST.append(grp)
-                group_lauched = True
+                    car = Caravan(_t, name="caravan"+str(i))
+                    parameters.CARAVAN_LIST.append(car)
+                caravan_lauched = True
+            else:
+                for car in parameters.CARAVAN_LIST:
+                    car.next_step()
 
             if not fixed:
                 tile_changed = fix_tiles()
 
                 fixed = True
-            if test_path == None:
-                start_pos = random.choice(parameters.MAP_TILES)
-                goal_pos = random.choice([x for x in parameters.MAP_TILES if x != start_pos])
-            if test_path == None or pos_changed:
-                pos_changed = False
-                test_path = pf.astar(start_pos, goal_pos, forbidden=[]) #
-                print(pf.computePathLength(test_path))
+            # if test_path == None:
+            #     start_pos = random.choice(parameters.MAP_TILES)
+            #     goal_pos = random.choice([x for x in parameters.MAP_TILES if x != start_pos])
+            # if test_path == None or pos_changed:
+            #     pos_changed = False
+            #     test_path = pf.astar(start_pos, goal_pos, forbidden=[]) #
+            #     print(pf.computePathLength(test_path))
 
                 # print("No path from {} to {}".format(start_pos.getPose(), goal_pos.getPose()))
         t_update = time.time() - t_update
@@ -383,18 +428,18 @@ def main():
                     cp.selected = False
                 cp.draw(screen,  _FAST_DISPLAY=parameters.FAST_DISPLAY)
 
-            for grp in parameters.GROUP_LIST:
-                grp.draw(screen)
+            for car in parameters.CARAVAN_LIST:
+                car.draw(screen)
 
-            if test_path != None and len(test_path) > 1:
-                pygame.draw.circle(screen, tile_info.GREEN, start_pos.rect.center, 5)
-                pygame.draw.circle(screen, tile_info.BLACK, start_pos.rect.center, 5, 2)
-                pygame.draw.circle(screen, tile_info.RED, goal_pos.rect.center, 5)
-                pygame.draw.circle(screen, tile_info.BLACK, goal_pos.rect.center, 5, 2)
+            # if test_path != None and len(test_path) > 1:
+            #     pygame.draw.circle(screen, tile_info.GREEN, start_pos.rect.center, 5)
+            #     pygame.draw.circle(screen, tile_info.BLACK, start_pos.rect.center, 5, 2)
+            #     pygame.draw.circle(screen, tile_info.RED, goal_pos.rect.center, 5)
+            #     pygame.draw.circle(screen, tile_info.BLACK, goal_pos.rect.center, 5, 2)
 
 
-                pygame.draw.lines(screen, tile_info.BLACK, False, [x.rect.center for x in test_path], 3)
-                pygame.draw.lines(screen, tile_info.WHITE, False, [x.rect.center for x in test_path], 1)
+            #     pygame.draw.lines(screen, tile_info.BLACK, False, [x.rect.center for x in test_path], 3)
+            #     pygame.draw.lines(screen, tile_info.WHITE, False, [x.rect.center for x in test_path], 1)
 
         t_display = time.time() - t_display
 

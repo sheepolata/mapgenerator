@@ -210,3 +210,15 @@ def weighted_choice(weight_map):
     c = np.random.choice(range(0, len(values)), p=p)
     # print c, " ", values[c]
     return values[c]
+
+def getRandomTile(tilemap=parameters.MAP_TILES, p=None, forbidden=[]):
+    if p == None:
+        res = random.choice(tilemap)
+        while res.getType() in forbidden:
+            res = random.choice(tilemap)
+        return res
+    else:
+        res = random.choice(tilemap)
+        while res.getType() in forbidden:
+            res = random.choice(tilemap)
+        return res
