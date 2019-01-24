@@ -26,8 +26,10 @@ class MapTile(pygame.sprite.Sprite):
 
         self.index = index
 
+        self.caravan = None
+
         # self.color = (int(random.random() * 255), int(random.random() * 255), int(random.random() * 255))
-        self.randomise()
+        self.reset()
 
         self.image = pygame.Surface([self.w, self.h])
         self.image.fill(self.color)
@@ -39,7 +41,7 @@ class MapTile(pygame.sprite.Sprite):
         self.effect = True
         self.randomEffectSettings()
 
-    def randomise(self):
+    def reset(self):
         # t = time.time()
         if parameters.DEFAULT_DRAWING:
             self.color = random.choice(parameters.COLOR_PALETTE)
@@ -49,6 +51,7 @@ class MapTile(pygame.sprite.Sprite):
             # self.color = tuple(np.random.choice(np.array(parameters.COLOR_PALETTE,dtype='i,i,i'), p=parameters.COLOR_PROBA))
             self.color = utils.weighted_choice(parameters.BIOME)
         self.color_fixed = False
+        self.caravan = None
         # print (time.time() - t)
 
     def getPose(self):
@@ -66,6 +69,9 @@ class MapTile(pygame.sprite.Sprite):
 
         self.image.fill(self.color)
 
+    def get2DCoord(self):
+        #k =     i * width + j. Thus i = k / width, j = k % width
+        return (self.index / parameters.CANVAS_WIDTH, self.index%parameters.CANVAS_WIDTH)
 
     def randomEffectSettings(self):
         self.effect_random_placement = (random.randrange(-4, 4), random.randrange(-4, 4))
@@ -127,15 +133,20 @@ class MapTile(pygame.sprite.Sprite):
                     .format(self.x, self.y, self.getType(), self.getCost()))
 
 class Caravan(pygame.sprite.Sprite):
-    def __init__(self, c, population_count=int(random.random()*50)+30, speed=1):
+    def __init__(self, _tile, population_count=int(random.random()*50)+30, speed=1, name="caravan"):
         # Call the parent class (Sprite) constructor
         super(Caravan, self).__init__()
 
-        self.x = c[0]
-        self.y = c[1]
+        self.tile = _tile
+        self.tile.caravan = self
+        self.x = self.tile.rect.center[0]
+        self.y = self.tile.rect.center[1]
+
         self.population_count = population_count
+        
         self.speed = speed
 
+        self.name = name
 
         # Create an image of the block, and fill it with a color.
         # This could also be an image loaded from the disk.
@@ -146,7 +157,8 @@ class Caravan(pygame.sprite.Sprite):
 
         # Fetch the rectangle object that has the dimensions of the image
         # Update the position of this object by setting the values of rect.x and rect.y
-        self.rect = pygame.Rect(self.x, self.y,
+        self.rect = pygame.Rect(self.x-(self.image.get_rect().size[0]/2), 
+                                self.y-(self.image.get_rect().size[1]/2),
                                 self.image.get_rect().size[0],
                                 self.image.get_rect().size[1])
         # self.rect = self.image.get_rect()
@@ -235,7 +247,7 @@ def main():
                     run = False
                 if event.key == pygame.K_r and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     for cp in parameters.MAP_TILES:
-                        cp.randomise()
+                        cp.reset()
                     
                     simulation_started = False
                     generation_done = False
@@ -293,24 +305,33 @@ def main():
                                 pos_changed = True
                                 break
                     pass
-            # elif pygame.mouse.get_pressed()[0] and simulation_started:
-            #     try:
-            #         for cp in parameters.MAP_TILES:
-            #             if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos and cp != start_pos:
-            #                 start_pos = cp
-            #                 pos_changed = True
-            #                 break
-            #     except AttributeError:
-            #         pass
-            # elif pygame.mouse.get_pressed()[2] and simulation_started:
-            #     try:
-            #         for cp in parameters.MAP_TILES:
-            #             if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos and cp != start_pos:
-            #                 goal_pos = cp
-            #                 pos_changed = True
-            #                 break
-            #     except AttributeError:
-            #         pass
+            #For a update while holding the mouse buttons pressed
+            elif pygame.mouse.get_pressed()[0] and simulation_started and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                try:
+                    for cp in parameters.MAP_TILES:
+                        if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos and cp != start_pos:
+                            start_pos = cp
+                            pos_changed = True
+                            break
+                except AttributeError:
+                    pass
+            elif pygame.mouse.get_pressed()[0]:
+                try:
+                    for cp in parameters.MAP_TILES:
+                        if cp.collidepoint(pygame.mouse.get_pos()):
+                            selected_tile = cp
+                            break
+                except AttributeError:
+                    pass
+            elif pygame.mouse.get_pressed()[2] and simulation_started:
+                try:
+                    for cp in parameters.MAP_TILES:
+                        if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos and cp != start_pos:
+                            goal_pos = cp
+                            pos_changed = True
+                            break
+                except AttributeError:
+                    pass
 
         #UPDATE
         if not generation_done and step_counter%100==0:
@@ -332,7 +353,10 @@ def main():
 
             if not group_lauched:
                 for i in xrange(0,5):
-                    grp = Caravan(utils.getEdgeCoord(forbidden=["sea", "ocean"]))
+                    _t = utils.getEdgeTile(forbidden=["sea", "ocean"])
+                    while _t.caravan != None:
+                        _t = utils.getEdgeTile(forbidden=["sea", "ocean"])
+                    grp = Caravan(_t, name="caravan"+str(i))
                     parameters.GROUP_LIST.append(grp)
                 group_lauched = True
 
@@ -402,16 +426,23 @@ def main():
         shift = fontsize + shift
 
         if selected_tile != None:
-            header = "Tile {} ({}, {})".format(selected_tile.index, selected_tile.x, selected_tile.y)
-            selected_tile_info = "{} ({})".format(selected_tile.getType(), selected_tile.getCost())
-
+            header = "Tile {} {}".format(selected_tile.index, selected_tile.get2DCoord())
             displ_header = font.render(header, True, tile_info.BLACK)
-            displ_selected_tile_info = font.render(selected_tile_info, True, tile_info.BLACK)
-
             info_surface.blit(displ_header, (10, shift + fontsize + 2))
             shift = shift + fontsize + 2
+
+            selected_tile_info = "{} ({})".format(selected_tile.getType(), selected_tile.getCost())
+            displ_selected_tile_info = font.render(selected_tile_info, True, tile_info.BLACK)
             info_surface.blit(displ_selected_tile_info, (10, shift + fontsize + 2))
             shift = shift + fontsize
+
+            if selected_tile.caravan != None:
+                selected_tile_caravan = "{}, {} people, {}spd".format(selected_tile.caravan.name
+                                                                    , selected_tile.caravan.population_count
+                                                                    , selected_tile.caravan.speed)
+                displ_selected_tile_info = font.render(selected_tile_caravan, True, tile_info.BLACK)
+                info_surface.blit(displ_selected_tile_info, (10, shift + fontsize + 2))
+                shift = shift + fontsize
 
         #Blit and Flip surfaces
         if not parameters.FAST_DISPLAY or (parameters.FAST_DISPLAY and step_counter%5 == 0):

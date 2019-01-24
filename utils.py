@@ -177,7 +177,7 @@ def roughSemicirclePointsFromCenter(centre, size):
 
     return res
     
-def getEdgeCoord(_list=parameters.MAP_TILES, grid_w=parameters.CANVAS_WIDTH, grid_h=parameters.CANVAS_HEIGHT, forbidden=[]):
+def getEdgeTile(_list=parameters.MAP_TILES, grid_w=parameters.CANVAS_WIDTH, grid_h=parameters.CANVAS_HEIGHT, forbidden=[]):
     #k = i * width + j. Thus i = k / width, j = k % width
 
     _x, _y = 0, 0
@@ -201,7 +201,7 @@ def getEdgeCoord(_list=parameters.MAP_TILES, grid_w=parameters.CANVAS_WIDTH, gri
 
         tile = _list[_x * grid_w + _y]
 
-    return (tile.rect.x, tile.rect.y)
+    return tile
 
 def weighted_choice(weight_map):
     values = weight_map.keys()
