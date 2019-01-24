@@ -10,6 +10,7 @@ import numpy as np
 from screeninfo import get_monitors
 import os
 import operator
+import colour
 
 import tile_info
 import utils
@@ -27,6 +28,7 @@ class MapTile(pygame.sprite.Sprite):
         self.index = index
 
         self.caravan = []
+        self.village = None
 
         # self.color = (int(random.random() * 255), int(random.random() * 255), int(random.random() * 255))
         self.reset()
@@ -43,6 +45,7 @@ class MapTile(pygame.sprite.Sprite):
 
     def reset(self):
         # t = time.time()
+        self.heat_color = tile_info.EMPTY
         if parameters.DEFAULT_DRAWING:
             self.color = random.choice(parameters.COLOR_PALETTE)
         else:
@@ -119,6 +122,17 @@ class MapTile(pygame.sprite.Sprite):
                                     (self.rect.center[0] + self.grass_coord[i][0], self.rect.center[1] + self.grass_coord[i][1] + self.grass_size[i])
                                     )
 
+    def draw_heatmap(self, alpha_surface):
+
+        # red = colour.Color("red")
+        # colors = list(red.range_to(colour.Color("green"),10))
+
+        # colors = [tuple([x*255 for x in c.rgb]) for c in colors]
+
+        # index = int(round(10*utils.normalise(self.evaluate(), parameters.MIN_TILE_SCORE, parameters.MAX_TILE_SCORE)))
+
+        pygame.draw.rect(alpha_surface, self.heat_color, self.rect)
+
     def getType(self):
         return tile_info.COLOR_TO_TYPE[self.color]
 
@@ -132,8 +146,38 @@ class MapTile(pygame.sprite.Sprite):
         return ("({}, {}) {} ({})"
                     .format(self.x, self.y, self.getType(), self.getCost()))
 
+    def evaluate(self, radius=1):
+        vinicity = utils.getTilesInRadius(self, radius)
+        vinicity_type = [x.getType() for x in vinicity]
+        freq = utils.countFreq(vinicity_type)
+        #1.0 MAX => MAX Diversity
+        diversity = float(len(freq.keys())) / float(len(tile_info.USED_TYPES))
+
+
+        score = 0.0
+
+        for t in tile_info.USED_TYPES:
+            if t not in freq.keys():
+                freq[t] = 0.0
+
+        if self.getType() in ["sea", "ocean", "city"]:
+            return 0.0
+
+        score = (
+                    (1.5*freq["plain"] + 1.4*freq["sea"] + 0.9*freq["forest"] + 0.6*freq["hill"] + 0.2*freq["ocean"]
+                     - 0.35*freq["desert"] - 0.45*freq["mountain"] - 1.5*freq["city"]) 
+                    # (freq["plain"] + freq["sea"] + freq["forest"] + freq["hill"]
+                    # - freq["ocean"] - freq["desert"] - freq["mountain"] - freq["city"]) #MAX 2.0
+                    # (freq["plain"] + freq["sea"] + freq["forest"] + freq["hill"]
+                    # + freq["ocean"] + freq["desert"] + freq["mountain"] + freq["city"]) #MAX 2.0
+                    +
+                    (diversity if diversity <= 0.5 else (1.0 - diversity))
+                )
+
+        return max(0.0, round(score, 4))
+
 class Caravan(pygame.sprite.Sprite):
-    def __init__(self, _tile, population_count=-1, speed=-1, name="caravan"):
+    def __init__(self, _tile, population_count=-1, name="caravan"):
         # Call the parent class (Sprite) constructor
         super(Caravan, self).__init__()
 
@@ -143,14 +187,13 @@ class Caravan(pygame.sprite.Sprite):
         self.y = self.tile.rect.center[1]
 
         if population_count == -1:
-            self.population_count = int(random.random()*50)+30
+            self.population_count = int(random.random()*(parameters.MAX_POP_PER_CARAVAN - parameters.MIN_POP_PER_CARAVAN) + parameters.MIN_POP_PER_CARAVAN)
         else:
             self.population_count = population_count
 
-        if speed == -1:
-            self.speed_modifier = round(0.5 + random.random()*1.5, 2)
-        else:
-            self.speed_modifier = speed
+        self.speed_modifier = round(utils.normalise(self.population_count, parameters.MIN_POP_PER_CARAVAN*0.8, parameters.MAX_POP_PER_CARAVAN*1.2), 3)
+
+        # self.speed_modifier = 1 + round(self.population_count / parameters.MAX_POP_PER_CARAVAN, 2)
 
         self.name = name
 
@@ -177,6 +220,9 @@ class Caravan(pygame.sprite.Sprite):
         self.tile_goto = None
         self.walking_left = 0
 
+        self.vision_range = 4
+        self.visible_vinicity = []
+
     #Choose the destination of the caravan if None
     def choose_destination(self, forbidden=[]):
         self.destination = utils.getRandomTile()
@@ -184,12 +230,14 @@ class Caravan(pygame.sprite.Sprite):
 
     #Move to the next tile in the route or choose to change course or action
     def next_step(self):
+        self.visible_vinicity = utils.getTilesInRadius(self.tile, self.vision_range)
+
         if self.destination == None or len(self.route) == 0:
             self.choose_destination()
 
         if self.tile_goto == None:
             self.tile_goto = self.route[0]
-            self.walking_left = int(round(self.tile_goto.getCost() * self.speed_modifier * 4, 2))
+            self.walking_left = int(round(self.tile_goto.getCost() * (1 + self.speed_modifier) * 4, 2))
 
         if self.tile_goto != None and self.walking_left > 0:
             self.walking_left -= 1
@@ -223,7 +271,57 @@ class Caravan(pygame.sprite.Sprite):
             pygame.draw.lines(screen, tile_info.BLACK, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 3)
             pygame.draw.lines(screen, tile_info.WHITE, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 1)
 
-        
+        # for t in self.visible_vinicity:
+        #     pygame.draw.rect(screen, tile_info.RED, t.rect, 1)
+
+class Village(pygame.sprite.Sprite):
+    """docstring for Village"""
+    def __init__(self, name, tile, population_count):
+        super(Village, self).__init__()
+        self.name = name
+        self.population_count = population_count
+        self.tile = tile
+
+        self.tile.village = self
+        self.tile.color = tile_info.GRAY
+
+        self.grow_rate = random.random()*0.2 + 0.9
+
+        # Create an image of the block, and fill it with a color.
+        # This could also be an image loaded from the disk.
+        # self.image = pygame.Surface([width, height])
+        # self.image.fill(color)
+        # self.image = pygame.image.load(os.path.join('Sprites', 'caravan.png'))
+
+        # Fetch the rectangle object that has the dimensions of the image
+        # Update the position of this object by setting the values of rect.x and rect.y
+        # self.rect = pygame.Rect(self.x-(self.image.get_rect().size[0]/2), 
+        #                         self.y-(self.image.get_rect().size[1]/2),
+        #                         self.image.get_rect().size[0],
+        #                         self.image.get_rect().size[1])
+        # self.rect = self.image.get_rect()
+
+        parameters.VILLAGE_LIST.append(self)
+
+    def update(self):
+        return 0
+
+def computeHeatMap():
+    print("Compute heat map (score)")
+
+    red = colour.Color("red")
+    colors = list(red.range_to(colour.Color("green"),25))
+    colors = [tuple([int(x*255) for x in c.rgb]) for c in colors]
+
+    d_values = {}
+    for mt in parameters.MAP_TILES:
+        d_values[mt] = mt.evaluate()
+
+    parameters.MAX_TILE_SCORE = round(max(d_values.iteritems(), key=operator.itemgetter(1))[1], 4)
+
+    for mt in parameters.MAP_TILES:
+        index = int(round((len(colors)-1)*utils.normalise(d_values[mt], parameters.MIN_TILE_SCORE, parameters.MAX_TILE_SCORE)))
+        mt.heat_color = tuple([x for x in colors[index]] + [255])
 
 def main():
     pygame.init()
@@ -245,6 +343,7 @@ def main():
     pygame.display.set_caption(caption)
 
     screen = pygame.Surface((main_surface_width, main_surface_height))
+    alpha_surface = pygame.Surface((main_surface_width, main_surface_height), pygame.SRCALPHA)
     info_surface = pygame.Surface((info_surface_width, info_surface_height))
 
 
@@ -274,6 +373,7 @@ def main():
     generation_done = False
     simulation_started = False
     caravan_lauched = False
+    heatmap = False
 
     t_loop = 0.01
     q_time = []
@@ -295,6 +395,7 @@ def main():
         if(step_counter%100000 == 0): step_counter = 0
 
         info_surface.fill(tile_info.WHITE)
+        alpha_surface.fill(tile_info.EMPTY)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT :
@@ -325,6 +426,8 @@ def main():
                     print fix_tiles()
                 elif event.key == pygame.K_f:
                     parameters.FAST_DISPLAY = not parameters.FAST_DISPLAY
+                elif event.key == pygame.K_h:
+                    heatmap = not heatmap
                 if event.key == pygame.K_SPACE and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     stop_generation = True
                 elif event.key == pygame.K_SPACE:
@@ -425,13 +528,15 @@ def main():
                 tile_changed = fix_tiles()
                 fixed = True
             if not caravan_lauched:
-                for i in xrange(0,5):
+                for i in xrange(0,parameters.STARTING_NB_CARAVAN):
                     _t = utils.getEdgeTile(forbidden=["sea", "ocean"])
                     while len(_t.caravan) > 1:
                         _t = utils.getEdgeTile(forbidden=["sea", "ocean"])
                     car = Caravan(_t, name="caravan"+str(i))
                     parameters.CARAVAN_LIST.append(car)
                 caravan_lauched = True
+                computeHeatMap()
+
             elif not paused:
                 for car in parameters.CARAVAN_LIST:
                     car.next_step()
@@ -453,6 +558,8 @@ def main():
                 if cp != selected_tile and cp.selected:
                     cp.selected = False
                 cp.draw(screen,  _FAST_DISPLAY=parameters.FAST_DISPLAY)
+                if heatmap:
+                    cp.draw_heatmap(alpha_surface)
 
             for car in parameters.CARAVAN_LIST:
                 car.draw(screen)
@@ -497,66 +604,84 @@ def main():
 
         shift = fontsize + shift
 
-        text3 = "Selected Tile info".format()
-        displ_text3 = font.render(text3, True, tile_info.BLACK)
-        info_surface.blit(displ_text3, (10, fontsize*1.2 + shift))
-        shift = fontsize*1.2 + shift
 
         if selected_tile != None:
+            text3 = "Selected Tile info".format()
+            displ_text3 = font.render(text3, True, tile_info.BLACK)
+            info_surface.blit(displ_text3, (10, fontsize*1.2 + shift))
+            shift = fontsize*1.2 + shift
+        
             header = "Tile {} {}".format(selected_tile.index, selected_tile.get2DCoord())
             displ_header = font.render(header, True, tile_info.BLACK)
             info_surface.blit(displ_header, (10, shift + fontsize + 2))
             shift = shift + fontsize + 2
 
-            selected_tile_info = "{} ({})".format(selected_tile.getType(), selected_tile.getCost())
+            selected_tile_info = "{} ({}) eval{}/{}".format(selected_tile.getType(), selected_tile.getCost(), selected_tile.evaluate(), parameters.MAX_TILE_SCORE)
             displ_selected_tile_info = font.render(selected_tile_info, True, tile_info.BLACK)
             info_surface.blit(displ_selected_tile_info, (10, shift + fontsize + 2))
             shift = shift + fontsize
 
             for car in selected_tile.caravan:
-                selected_tile_caravan = "{}, {} people, {}spd".format(car.name
-                                                                    , car.population_count
-                                                                    , car.speed_modifier)
+                selected_tile_caravan = "{}, {} people".format(car.name
+                                                                , car.population_count)
                 displ_selected_tile_info = font.render(selected_tile_caravan, True, tile_info.BLACK)
                 info_surface.blit(displ_selected_tile_info, (10, shift + fontsize + 2))
                 shift = shift + fontsize
-        else:
-            header = "No Tile selected"
-            displ_header = font.render(header, True, tile_info.BLACK)
-            info_surface.blit(displ_header, (10, shift + fontsize + 2))
-            shift = shift + fontsize + 2
+        # else:
+        #     header = "No Tile selected"
+        #     displ_header = font.render(header, True, tile_info.BLACK)
+        #     info_surface.blit(displ_header, (10, shift + fontsize + 2))
+        #     shift = shift + fontsize + 2
 
         shift = fontsize + shift
 
-        text4 = "Selected Caravan info".format()
+        text4 = "Caravans info".format()
         displ_text4 = font.render(text4, True, tile_info.BLACK)
         info_surface.blit(displ_text4, (10, fontsize*1.2 + shift))
         shift = fontsize*1.2 + shift
 
         # if selected_caravan != None:
         for caravan in parameters.CARAVAN_LIST:
-            selected_caravan_text = "{}, {} people, {}spd".format(caravan.name
+            selected_caravan_text = "   {}, {} people, {}% spd".format(caravan.name
                                                                 , caravan.population_count
-                                                                , caravan.speed_modifier)
+                                                                , (1.0-caravan.speed_modifier)*100)
             displ_selected_caravan = font.render(selected_caravan_text, True, tile_info.BLACK)
             info_surface.blit(displ_selected_caravan, (10, shift + fontsize + 2))
             shift = shift + fontsize
 
-            selected_caravan_text = "{} walking left, {} tile(s) left".format(caravan.walking_left, len(caravan.route))
+            selected_caravan_text = "      {} walking left, {} tile(s) left".format(caravan.walking_left, len(caravan.route))
             displ_selected_caravan = font.render(selected_caravan_text, True, tile_info.BLACK)
             info_surface.blit(displ_selected_caravan, (10, shift + fontsize + 2))
             shift = shift + fontsize
+
+            # selected_caravan_text = "{} vision range".format(caravan.vision_range)
+            # displ_selected_caravan = font.render(selected_caravan_text, True, tile_info.BLACK)
+            # info_surface.blit(displ_selected_caravan, (10, shift + fontsize + 2))
+            # shift = shift + fontsize
         # else:
         #     text = "No Caravan selected"
         #     displ_header = font.render(text, True, tile_info.BLACK)
         #     info_surface.blit(displ_header, (10, shift + fontsize + 2))
         #     shift = shift + fontsize + 2
 
+        shift = fontsize*1.2 + shift
 
+        text4 = "Villages info".format()
+        displ_text4 = font.render(text4, True, tile_info.BLACK)
+        info_surface.blit(displ_text4, (10, fontsize*1.2 + shift))
+        shift = fontsize*1.2 + shift
+
+        for village in parameters.VILLAGE_LIST:
+            villages_text = "   {}, {} people".format(village.name
+                                                                , village.population_count)
+            displ_villages_text = font.render(villages_text, True, tile_info.BLACK)
+            info_surface.blit(displ_villages_text, (10, shift + fontsize + 2))
+            shift = shift + fontsize
 
         #Blit and Flip surfaces
         if not parameters.FAST_DISPLAY or (parameters.FAST_DISPLAY and step_counter%5 == 0):
             window.blit(screen, (0, 0))
+            window.blit(alpha_surface, (0, 0))
         window.blit(info_surface, (main_surface_width, 0))
 
 

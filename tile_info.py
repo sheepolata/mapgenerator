@@ -87,7 +87,7 @@ COLOR_TO_TYPE = {
     CYAN      : "unknow",
     MAGENTA   : "unknow",
     SILVER    : "unknow",
-    GRAY      : "unknow",
+    GRAY      : "city",
     MAROON    : "unknow",
     BROWN     : "mountain",
     OLIVE     : "hill",
@@ -100,6 +100,8 @@ COLOR_TO_TYPE = {
     NAVY      : "ocean"
 }
 
+USED_TYPES = ["sea", "ocean", "plain", "forest", "desert", "hill", "mountain", "city"]
+
 TYPE_TO_COST = {
     "unknow"    : 1.0,
     "sea"       : 24.0,
@@ -108,7 +110,8 @@ TYPE_TO_COST = {
     "forest"    : 4.0,
     "desert"    : 8.0,
     "hill"      : 4.0,
-    "mountain"  : 16.0
+    "mountain"  : 16.0,
+    "city"      : 2.0
 }
 
 TYPE_TO_MULTIPLIER = {
@@ -119,7 +122,9 @@ TYPE_TO_MULTIPLIER = {
     "forest"     : 1.0 / TYPE_TO_COST["forest"],
     "desert"     : 1.0 / TYPE_TO_COST["desert"],
     "hill"       : 1.0 / TYPE_TO_COST["hill"],
-    "mountain"   : 1.0 / TYPE_TO_COST["mountain"]
+    "mountain"   : 1.0 / TYPE_TO_COST["mountain"],
+    "city"       : 1.0 / TYPE_TO_COST["city"],
+
 }
 
 EMPTY = (0, 0, 0, 0)

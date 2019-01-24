@@ -183,21 +183,21 @@ def getEdgeTile(_list=parameters.MAP_TILES, grid_w=parameters.CANVAS_WIDTH, grid
     _x, _y = 0, 0
 
     if random.random() < 0.5:
-        _x = random.randint(0, grid_w)
+        _x = random.randint(0, grid_w-1)
         _y = random.choice([0, grid_h-1])
     else:
         _x = random.choice([0, grid_w-1])
-        _y = random.randint(0, grid_h)
+        _y = random.randint(0, grid_h-1)
 
     tile = _list[_x * grid_w + _y]
 
     while tile.getType() in forbidden:
         if random.random() < 0.5:
-            _x = random.randint(0, grid_w)
+            _x = random.randint(0, grid_w-1)
             _y = random.choice([0, grid_h-1])
         else:
             _x = random.choice([0, grid_w-1])
-            _y = random.randint(0, grid_h)
+            _y = random.randint(0, grid_h-1)
 
         tile = _list[_x * grid_w + _y]
 
@@ -222,3 +222,32 @@ def getRandomTile(tilemap=parameters.MAP_TILES, p=None, forbidden=[]):
         while res.getType() in forbidden:
             res = random.choice(tilemap)
         return res
+
+def getTilesInRadius(tile, radius):
+    res = [tile]
+    neigh = getNeighboursFrom1D(elem_i=tile.index, eight_neigh=False)
+    res += neigh
+
+    to_do = neigh
+    for n in to_do:
+        neigh = getNeighboursFrom1D(elem_i=n.index, eight_neigh=False)
+        for n2 in neigh:
+            if distance2p(tile.get2DCoord(), n2.get2DCoord()) > radius:
+                continue
+            if n2 not in res:
+                res.append(n2)
+            if n2 not in to_do:
+                to_do.append(n2)
+
+    return res
+
+def countFreq(_list):
+    d = {}
+    for e in _list:
+        if e not in d.keys():
+            d[e] = 1
+        else:
+            d[e] += 1
+    for k in d.keys():
+        d[k] = float(d[k])/float(len(_list))
+    return d
