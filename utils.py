@@ -40,7 +40,11 @@ def near(a, target, _thresh=10):
     return (a[0] > (target[0] - _thresh) and a[0] < (target[0] + _thresh)) and (a[1] > (target[1] - _thresh) and a[1] <(target[1] + _thresh))
 
 def distance2p(a,b):
-    return math.sqrt((a[0]-b[0])**2+(a[1]-b[1])**2)
+    a0 = float(a[0])
+    a1 = float(a[1])
+    b0 = float(b[0])
+    b1 = float(b[1])
+    return math.sqrt((a0-b0)**2+(a1-b1)**2)
 
 class perpetualTimer():
     def __init__(self,t,hFunction):
