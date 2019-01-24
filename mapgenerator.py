@@ -26,7 +26,7 @@ class MapTile(pygame.sprite.Sprite):
 
         self.index = index
 
-        self.caravan = None
+        self.caravan = []
 
         # self.color = (int(random.random() * 255), int(random.random() * 255), int(random.random() * 255))
         self.reset()
@@ -51,7 +51,7 @@ class MapTile(pygame.sprite.Sprite):
             # self.color = tuple(np.random.choice(np.array(parameters.COLOR_PALETTE,dtype='i,i,i'), p=parameters.COLOR_PROBA))
             self.color = utils.weighted_choice(parameters.BIOME)
         self.color_fixed = False
-        self.caravan = None
+        self.caravan = []
         # print (time.time() - t)
 
     def getPose(self):
@@ -133,20 +133,28 @@ class MapTile(pygame.sprite.Sprite):
                     .format(self.x, self.y, self.getType(), self.getCost()))
 
 class Caravan(pygame.sprite.Sprite):
-    def __init__(self, _tile, population_count=int(random.random()*50)+30, speed=1, name="caravan"):
+    def __init__(self, _tile, population_count=-1, speed=-1, name="caravan"):
         # Call the parent class (Sprite) constructor
         super(Caravan, self).__init__()
 
         self.tile = _tile
-        self.tile.caravan = self
+        self.tile.caravan.append(self)
         self.x = self.tile.rect.center[0]
         self.y = self.tile.rect.center[1]
 
-        self.population_count = population_count
-        
-        self.speed_modifier = speed
+        if population_count == -1:
+            self.population_count = int(random.random()*50)+30
+        else:
+            self.population_count = population_count
+
+        if speed == -1:
+            self.speed_modifier = round(0.5 + random.random()*1.5, 2)
+        else:
+            self.speed_modifier = speed
 
         self.name = name
+
+        self.selected = False
 
         # Create an image of the block, and fill it with a color.
         # This could also be an image loaded from the disk.
@@ -181,7 +189,7 @@ class Caravan(pygame.sprite.Sprite):
 
         if self.tile_goto == None:
             self.tile_goto = self.route[0]
-            self.walking_left = self.tile_goto.getCost() * self.speed_modifier * 2
+            self.walking_left = int(round(self.tile_goto.getCost() * self.speed_modifier * 4, 2))
 
         if self.tile_goto != None and self.walking_left > 0:
             self.walking_left -= 1
@@ -191,9 +199,9 @@ class Caravan(pygame.sprite.Sprite):
 
     def set_next_tile(self):
         self.route = self.route[1:]
-        self.tile.caravan = None
+        self.tile.caravan.remove(self)
         self.tile = self.tile_goto
-        self.tile.caravan = self
+        self.tile.caravan.append(self)
 
         self.x = self.tile.rect.center[0]
         self.y = self.tile.rect.center[1]
@@ -202,13 +210,19 @@ class Caravan(pygame.sprite.Sprite):
                                 self.image.get_rect().size[0],
                                 self.image.get_rect().size[1])
 
+    def collidepoint(self, c):
+        self.rect.collidepoint(c)
+
     def draw(self, screen):
         # pygame.draw.circle(screen, tile_info.WHITE, (self.x, self.y), 8)
         # pygame.draw.circle(screen, tile_info.BLACK, (self.x, self.y), 8, 4)
         screen.blit(self.image, self.rect)
+        if self.selected:
+            pygame.draw.rect(screen, tile_info.RED, self.rect, 2)
         if self.route != []:
             pygame.draw.lines(screen, tile_info.BLACK, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 3)
             pygame.draw.lines(screen, tile_info.WHITE, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 1)
+
         
 
 def main():
@@ -254,6 +268,7 @@ def main():
     step_counter = 0
     paused = False
     selected_tile = None
+    selected_caravan = None
     fixed = False
     stop_generation = False
     generation_done = False
@@ -329,15 +344,25 @@ def main():
                 elif event.button == 1:
                     for cp in parameters.MAP_TILES:
                         if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos:
-                            selected_tile = cp        
+                            selected_tile = cp
+                            if len(cp.caravan) > 0:
+                                selected_caravan = cp.caravan[0]
+                    # for car in parameters.CARAVAN_LIST:
+                    #     if car.collidepoint(pygame.mouse.get_pos()) and car != selected_caravan:
+                    #         selected_caravan = car 
                     pass
                 #MMB
                 if event.button == 2:
-                    selected_tile = None
+                    if selected_tile != None:
+                        selected_tile.selected = False
+                        selected_tile = None
+                    if selected_caravan != None:
+                        selected_caravan.selected = False
+                        selected_caravan = None
                     pass
                 #RMB
                 if event.button == 3:
-                    selected_tile = None
+                    pass
                 if event.button == 3 and pygame.key.get_mods() & pygame.KMOD_CTRL:
                     if simulation_started:
                         for cp in parameters.MAP_TILES:
@@ -362,6 +387,8 @@ def main():
                     for cp in parameters.MAP_TILES:
                         if cp.collidepoint(pygame.mouse.get_pos()):
                             selected_tile = cp
+                            if len(cp.caravan) > 0:
+                                selected_caravan = cp.caravan[0]
                             break
                 except AttributeError:
                     pass
@@ -387,28 +414,27 @@ def main():
 
         if selected_tile != None:
             selected_tile.selected = True
+        if selected_caravan != None:
+            selected_caravan.selected = True
         if step_counter % max(int(parameters.FORCED_FPS/parameters.REFRESH_FREQ), 1) == 0 and not paused:
             for cp in parameters.MAP_TILES:
                 cp.update()
 
         if simulation_started:
-
+            if not fixed:
+                tile_changed = fix_tiles()
+                fixed = True
             if not caravan_lauched:
                 for i in xrange(0,5):
                     _t = utils.getEdgeTile(forbidden=["sea", "ocean"])
-                    while _t.caravan != None:
+                    while len(_t.caravan) > 1:
                         _t = utils.getEdgeTile(forbidden=["sea", "ocean"])
                     car = Caravan(_t, name="caravan"+str(i))
                     parameters.CARAVAN_LIST.append(car)
                 caravan_lauched = True
-            else:
+            elif not paused:
                 for car in parameters.CARAVAN_LIST:
                     car.next_step()
-
-            if not fixed:
-                tile_changed = fix_tiles()
-
-                fixed = True
             # if test_path == None:
             #     start_pos = random.choice(parameters.MAP_TILES)
             #     goal_pos = random.choice([x for x in parameters.MAP_TILES if x != start_pos])
@@ -460,15 +486,21 @@ def main():
         text = "{0:03d} LPS (~{1:.4f}s/loop)".format(tmp, round(diff_t, 4))#, len(str(tmp)) - len(str(int(tmp))) - 2 )
         if paused:
             text += " PAUSED"
-        text2 = "{0:03d}% logic, {1:03d}% display".format(int(round((round(t_update, 4) / diff_t)*100)), int(round((round(t_display, 4) / diff_t)*100)))
         displ_text = font.render(text, True, tile_info.BLACK)
-        displ_text2 = font.render(text2, True, tile_info.BLACK)
         info_surface.blit(displ_text, (10, fontsize*1.2))
         shift = fontsize*1.2
+        
+        text2 = "{0:03d}% logic, {1:03d}% display".format(int(round((round(t_update, 4) / diff_t)*100)), int(round((round(t_display, 4) / diff_t)*100)))
+        displ_text2 = font.render(text2, True, tile_info.BLACK)
         info_surface.blit(displ_text2, (10, fontsize*1.2 + shift))
         shift = fontsize*1.2 + shift
 
         shift = fontsize + shift
+
+        text3 = "Selected Tile info".format()
+        displ_text3 = font.render(text3, True, tile_info.BLACK)
+        info_surface.blit(displ_text3, (10, fontsize*1.2 + shift))
+        shift = fontsize*1.2 + shift
 
         if selected_tile != None:
             header = "Tile {} {}".format(selected_tile.index, selected_tile.get2DCoord())
@@ -481,13 +513,46 @@ def main():
             info_surface.blit(displ_selected_tile_info, (10, shift + fontsize + 2))
             shift = shift + fontsize
 
-            if selected_tile.caravan != None:
-                selected_tile_caravan = "{}, {} people, {}spd".format(selected_tile.caravan.name
-                                                                    , selected_tile.caravan.population_count
-                                                                    , selected_tile.caravan.speed)
+            for car in selected_tile.caravan:
+                selected_tile_caravan = "{}, {} people, {}spd".format(car.name
+                                                                    , car.population_count
+                                                                    , car.speed_modifier)
                 displ_selected_tile_info = font.render(selected_tile_caravan, True, tile_info.BLACK)
                 info_surface.blit(displ_selected_tile_info, (10, shift + fontsize + 2))
                 shift = shift + fontsize
+        else:
+            header = "No Tile selected"
+            displ_header = font.render(header, True, tile_info.BLACK)
+            info_surface.blit(displ_header, (10, shift + fontsize + 2))
+            shift = shift + fontsize + 2
+
+        shift = fontsize + shift
+
+        text4 = "Selected Caravan info".format()
+        displ_text4 = font.render(text4, True, tile_info.BLACK)
+        info_surface.blit(displ_text4, (10, fontsize*1.2 + shift))
+        shift = fontsize*1.2 + shift
+
+        # if selected_caravan != None:
+        for caravan in parameters.CARAVAN_LIST:
+            selected_caravan_text = "{}, {} people, {}spd".format(caravan.name
+                                                                , caravan.population_count
+                                                                , caravan.speed_modifier)
+            displ_selected_caravan = font.render(selected_caravan_text, True, tile_info.BLACK)
+            info_surface.blit(displ_selected_caravan, (10, shift + fontsize + 2))
+            shift = shift + fontsize
+
+            selected_caravan_text = "{} walking left, {} tile(s) left".format(caravan.walking_left, len(caravan.route))
+            displ_selected_caravan = font.render(selected_caravan_text, True, tile_info.BLACK)
+            info_surface.blit(displ_selected_caravan, (10, shift + fontsize + 2))
+            shift = shift + fontsize
+        # else:
+        #     text = "No Caravan selected"
+        #     displ_header = font.render(text, True, tile_info.BLACK)
+        #     info_surface.blit(displ_header, (10, shift + fontsize + 2))
+        #     shift = shift + fontsize + 2
+
+
 
         #Blit and Flip surfaces
         if not parameters.FAST_DISPLAY or (parameters.FAST_DISPLAY and step_counter%5 == 0):

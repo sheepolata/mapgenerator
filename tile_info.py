@@ -34,6 +34,15 @@ ALL_COLOR_LIST = [BLACK, WHITE, RED, RED_2, RED_3, LIME, BLUE, BLUE_2, BLUE_3,
                 OLIVE, OLIVE_2, OLIVE_3, GREEN, PURPLE, TEAL, NAVY, BROWN]
 
 LANDSCAPE_COLOR_LIST = [BLUE, NAVY, GREEN, GREEN_2, YELLOW, BROWN, OLIVE]
+LANDSCAPE_TEST       = {
+                        BLUE:0,
+                        NAVY:0,
+                        GREEN:1,
+                        GREEN_2:0,
+                        YELLOW:0,
+                        BROWN:0,
+                        OLIVE:0
+                    }
 LANDSCAPE_DEFAULT    = {
                         BLUE:0.15,
                         NAVY:0.14,
