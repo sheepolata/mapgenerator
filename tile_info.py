@@ -101,16 +101,18 @@ COLOR_TO_TYPE = {
 }
 
 USED_TYPES = ["sea", "ocean", "plain", "forest", "desert", "hill", "mountain", "city"]
+LAND_TYPES = ["plain", "forest", "desert", "hill", "mountain", "city"]
+WATER_TYPES = ["sea", "ocean"]
 
 TYPE_TO_COST = {
     "unknow"    : 1.0,
-    "sea"       : 24.0,
-    "ocean"     : 32.0,
+    "sea"       : 22.0,
+    "ocean"     : 28.0,
     "plain"     : 1.0,
     "forest"    : 4.0,
     "desert"    : 8.0,
     "hill"      : 4.0,
-    "mountain"  : 16.0,
+    "mountain"  : 14.0,
     "city"      : 2.0
 }
 
