@@ -2,6 +2,7 @@
 #-*- coding: utf-8 -*-
 
 import tile_info
+import random
 
 #GLOBAL VARS
 MAP_TILES              = []
@@ -12,14 +13,19 @@ WINDOW_HEIGHT          = 700
 MAIN_WINDOW_PROPORTION = 0.75
 
 CARAVAN_LIST        = []
-STARTING_NB_CARAVAN = 5
-MIN_POP_PER_CARAVAN = 150.0
-MAX_POP_PER_CARAVAN = 600.0
+STARTING_NB_CARAVAN = 10
+MIN_POP_PER_CARAVAN = 50.0
+MAX_POP_PER_CARAVAN = 300.0
+
+MIGRANTS_VILLAGE_LIST = []
+
+EMISSARY_VILLAGE_LIST = []
 
 VILLAGE_LIST = []
 TOWN_LIST    = []
 CITY_LIST    = []
 
+NB_RIVERS = random.randint(35, 55)
 RIVERS = []
 
 MIN_TILE_SCORE = 0.0

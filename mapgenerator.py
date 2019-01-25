@@ -44,6 +44,10 @@ class MapTile(pygame.sprite.Sprite):
         self.effect = True
         self.randomEffectSettings()
 
+        self.score_computed = False
+        self.score = 0.0
+        self.detail_score = ""
+
     def reset(self):
         # t = time.time()
         self.heat_color_score = tile_info.EMPTY
@@ -145,39 +149,70 @@ class MapTile(pygame.sprite.Sprite):
         return ("({}, {}) {} ({})"
                     .format(self.x, self.y, self.getType(), self.getCost()))
 
-    def evaluate(self, radius=2):
-        vinicity = utils.getTilesInRadius(self, radius)
-        vinicity_type = [x.getType() for x in vinicity]
-        freq = utils.countFreq(vinicity_type)
-        #1.0 MAX => MAX Diversity
-        diversity = float(len(freq.keys())) / float(len(tile_info.USED_TYPES))
+    def evaluate(self, forced=False):
+        if not self.score_computed or forced:
+            # if forced: print("FORCED EVALUATION")
+            vinicity = utils.getTilesInRadius(self, radius=2, include_self=False)
+            vinicity_type = [x.getType() for x in vinicity]
+            freq = utils.countFreq(vinicity_type)
+            #1.0 MAX => MAX Diversity
+            diversity = float(len(freq.keys())) / float(len(tile_info.USED_TYPES))
 
-        neighbouring_river = sum([x.river*0.2 for x in vinicity])
-        # if neighbouring_river != 0.0: print(neighbouring_river)
+            neighbouring_river = sum([x.river*tile_info.SCORE_NEIGH_RIVER for x in vinicity])
+            # if neighbouring_river != 0.0: print(neighbouring_river)
 
-        score = 0.0
+            if self.getType() in ["shallow_water", "deep_water", "city"] or set(["city"]).intersection(set(freq.keys())) != set([]):
+                self.score = 0.0
+                self.score_computed = True
+                return self.score
+            
+            score = 0.0
 
-        for t in tile_info.USED_TYPES:
-            if t not in freq.keys():
-                freq[t] = 0.0
+            for t in tile_info.USED_TYPES:
+                if t not in freq.keys():
+                    freq[t] = 0.0
 
-        if self.getType() in ["sea", "ocean", "city"]:
-            return 0.0
 
-        score = (
-                    (1.5*freq["plain"] + 1.4*freq["sea"] + 0.9*freq["forest"] + 0.6*freq["hill"] + 0.2*freq["ocean"]
-                     - 0.3*freq["desert"] - 0.4*freq["mountain"] - 3.0*freq["city"]) 
-                    # (freq["plain"] + freq["sea"] + freq["forest"] + freq["hill"]
-                    # - freq["ocean"] - freq["desert"] - freq["mountain"] - freq["city"]) #MAX 2.0
-                    # (freq["plain"] + freq["sea"] + freq["forest"] + freq["hill"]
-                    # + freq["ocean"] + freq["desert"] + freq["mountain"] + freq["city"]) #MAX 2.0
-                    +
-                    (diversity if diversity <= 0.5 else (1.0 - diversity)) * 1.2
-                    +
-                    self.river * 0.4 + neighbouring_river
-                )
+            score = (   tile_info.TYPE_TO_SCORE[self.getType()]
+                        +
+                        (tile_info.TYPE_TO_WEIGTH_SCORE["plain"]*freq["plain"] 
+                            + tile_info.TYPE_TO_WEIGTH_SCORE["shallow_water"]*freq["shallow_water"] 
+                            + tile_info.TYPE_TO_WEIGTH_SCORE["forest"]*freq["forest"] 
+                            + tile_info.TYPE_TO_WEIGTH_SCORE["hill"]*freq["hill"] 
+                            + tile_info.TYPE_TO_WEIGTH_SCORE["deep_water"]*freq["deep_water"]
+                            + tile_info.TYPE_TO_WEIGTH_SCORE["desert"]*freq["desert"] 
+                            + tile_info.TYPE_TO_WEIGTH_SCORE["mountain"]*freq["mountain"] 
+                            + tile_info.TYPE_TO_WEIGTH_SCORE["city"]*(1.0 if freq["city"] > 0 else 0.0)
+                        )
+                        +
+                        (diversity if diversity <= 0.5 else (1.0 - diversity)) * 2.0
+                        +
+                        self.river * tile_info.SCORE_RIVER + neighbouring_river
+                    )
 
-        return max(0.0, round(score, 4))
+            self.score = max(0.0, round(score, 4))
+            self.score_computed = True
+
+            self.detail_score = "{}({}, {}) + ({}*{}(plain)+{}*{}(shallow_water)+{}*{}(forest)+{}*{}(hill)+{}*{}(deep_water)+{}*{}(desert)+{}*{}(mountain)+{}*{}(city)) + {}(diversity) + {}*{}+{}(rivers) = {}".format(
+                                    tile_info.TYPE_TO_SCORE[self.getType()]
+                                    , self.getType()
+                                    , self.getPose()
+                                    , tile_info.TYPE_TO_WEIGTH_SCORE["plain"], freq["plain"] 
+                                    , tile_info.TYPE_TO_WEIGTH_SCORE["shallow_water"], freq["shallow_water"] 
+                                    , tile_info.TYPE_TO_WEIGTH_SCORE["forest"], freq["forest"] 
+                                    , tile_info.TYPE_TO_WEIGTH_SCORE["hill"], freq["hill"] 
+                                    , tile_info.TYPE_TO_WEIGTH_SCORE["deep_water"], freq["deep_water"]
+                                    , tile_info.TYPE_TO_WEIGTH_SCORE["desert"], freq["desert"] 
+                                    , tile_info.TYPE_TO_WEIGTH_SCORE["mountain"], freq["mountain"] 
+                                    , tile_info.TYPE_TO_WEIGTH_SCORE["city"], (1.0 if freq["city"] > 0 else 0.0)
+                                    , (diversity if diversity <= 0.5 else (1.0 - diversity)) 
+                                    , self.river, tile_info.SCORE_RIVER, neighbouring_river
+                                    , self.score
+                                    )
+            # if freq["city"] > 0.0 :print(self.detail_score)
+            return self.score
+        else:
+            return self.score
 
 class Caravan(pygame.sprite.Sprite):
     def __init__(self, _tile, population_count=-1, name="caravan"):
@@ -194,7 +229,9 @@ class Caravan(pygame.sprite.Sprite):
         else:
             self.population_count = population_count
 
-        self.speed_modifier = round(utils.normalise(self.population_count, parameters.MIN_POP_PER_CARAVAN*0.8, parameters.MAX_POP_PER_CARAVAN*1.2), 3)
+        # self.speed_modifier =  1.0 + round(utils.normalise(self.population_count, parameters.MIN_POP_PER_CARAVAN*0.8, parameters.MAX_POP_PER_CARAVAN*1.2), 3)
+        self.speed_modifier = round(0.25 + random.random()*0.50, 2)
+        # self.speed_modifier = 1.0
 
         # self.speed_modifier = 1 + round(self.population_count / parameters.MAX_POP_PER_CARAVAN, 2)
 
@@ -225,25 +262,48 @@ class Caravan(pygame.sprite.Sprite):
 
         self.vision_range = 4
         self.visible_vinicity = []
+        self.explored_tiles = []
+        self.possible_settlement_tile = []
+        self.location_memory = 10
+        self.map_percent = 0.15
 
-        self.score_thresh = utils.normalise(self.population_count, parameters.MIN_POP_PER_CARAVAN*0.6, parameters.MAX_POP_PER_CARAVAN*1.4)*parameters.MAX_TILE_SCORE
-        # print("{} ({}*{}) ==>  {} < {} < {}".format(self.score_thresh,  utils.normalise(self.population_count, parameters.MIN_POP_PER_CARAVAN*0.6, parameters.MAX_POP_PER_CARAVAN*1.4), parameters.MAX_TILE_SCORE, parameters.MIN_POP_PER_CARAVAN, self.population_count, parameters.MAX_POP_PER_CARAVAN))
+        self.settling = False
+        self.settlement_tile = None
+        self.last_check = False
+
+        self.score_thresh = (
+                            utils.clamp(utils.normalise(self.population_count, 
+                                            parameters.MIN_POP_PER_CARAVAN*0.4, 
+                                            parameters.MAX_POP_PER_CARAVAN*1.2)
+                            , 0.2, 0.9)
+                            * parameters.MAX_TILE_SCORE
+                            )
+        # print("{} ==>  {} < {} < {}".format(self.score_thresh, parameters.MIN_POP_PER_CARAVAN, self.population_count, parameters.MAX_POP_PER_CARAVAN))
 
     #Choose the destination of the caravan if None
-    def choose_destination(self, forbidden=[]):
-        self.destination = utils.getRandomTile()
+    def choose_destination(self, goal=None, forbidden=[]):
+        if goal == None:
+            self.destination = utils.getRandomTile(tilemap=list(set(parameters.MAP_TILES).symmetric_difference(set(self.explored_tiles))))
+        else:
+            self.destination = goal
         self.route = pf.astar(self.tile, self.destination, forbidden=[])
 
     #Move to the next tile in the route or choose to change course or action
-    def next_step(self):
+    def next_step(self, _step):
         self.visible_vinicity = utils.getTilesInRadius(self.tile, self.vision_range)
 
         if self.destination == None or len(self.route) == 0:
-            self.choose_destination()
+            if not self.settling:
+                self.choose_destination()
+            elif self.old_settlement_tile != self.settlement_tile:
+                self.lastCheckBeforeSettling()
+            else:
+                self.makeVillage()
+                return
 
-        if self.tile_goto == None:
+        if self.tile_goto == None and self.route != []:
             self.tile_goto = self.route[0]
-            self.walking_left = int(round(self.tile_goto.getCost() * (1 + self.speed_modifier) * 2, 2))
+            self.walking_left = max(1, int(round(self.tile_goto.getCost() * (self.speed_modifier) * 2, 2)))
 
         if self.tile_goto != None and self.walking_left > 0:
             self.walking_left -= 1
@@ -251,11 +311,71 @@ class Caravan(pygame.sprite.Sprite):
                 self.set_next_tile()
                 self.tile_goto = None
 
+        if _step%10:
+            self.scanVinicity()
+        
+        self.settle()
+
+    def makeVillage(self):
+        print("Make Village")
+        village = Village("Village"+self.name[7:], self.tile, self.population_count)
+        self.self_destroy()
+        print("Make Village ==> END")
+
+    def self_destroy(self):
+        self.tile.caravan.remove(self)
+        parameters.CARAVAN_LIST.remove(self)
+
+    def lastCheckBeforeSettling(self):
+        print("Last check before settling")
+        self.settling = False
+        self.scanVinicity()
+        self.settle()
+        print("Last check before settling ==> END")
+
     def settle(self):
-        pass
+        if not self.settling:
+            if (float(len(self.explored_tiles))/float(len(parameters.MAP_TILES))) > self.map_percent and len(self.possible_settlement_tile) >= self.location_memory:
+                print("{} is settling!".format(self.name))
+
+                self.old_settlement_tile = self.settlement_tile
+
+                # self.settlement_tile = max(self.possible_settlement_tile, key=operator.methodcaller('evaluate'))
+                _sum = 0
+                for st in self.possible_settlement_tile:
+                    _sum += st.evaluate()
+                _dict = {}
+                for st in self.possible_settlement_tile:
+                    _dict[st] = st.evaluate() / _sum
+                self.settlement_tile = utils.weighted_choice(_dict)
+
+                self.settling = True
+            elif len(self.possible_settlement_tile) >= self.location_memory and (float(len(self.explored_tiles))/float(len(parameters.MAP_TILES))) > 0.75:
+                self.self_destroy()
+        elif self.destination != self.settlement_tile:
+            self.choose_destination(goal=self.settlement_tile)
 
     def scanVinicity(self):
-        pass
+        # print("TEST ", operator.methodcaller('evaluate')(parameters.MAP_TILES[0]))
+        min_thresh_tile = None
+        if self.possible_settlement_tile != []:
+            min_thresh_tile = min(self.possible_settlement_tile, key=operator.methodcaller('evaluate'))
+
+        for v in self.visible_vinicity:
+            if v not in self.explored_tiles:
+                self.explored_tiles.append(v)
+            if v in self.possible_settlement_tile:
+                continue
+            if v.evaluate() >= self.score_thresh:
+                if (len(self.possible_settlement_tile) >= self.location_memory):
+                        if v.evaluate() > min(self.possible_settlement_tile, key=operator.methodcaller('evaluate')).evaluate():
+                            self.possible_settlement_tile[self.possible_settlement_tile.index(min(self.possible_settlement_tile, key=operator.methodcaller('evaluate')))] = v
+                else:
+                    self.possible_settlement_tile.append(v)
+                # if len(self.possible_settlement_tile) > self.location_memory:
+                #     self.possible_settlement_tile = self.possible_settlement_tile[1:]
+
+
 
     def set_next_tile(self):
         self.route = self.route[1:]
@@ -273,20 +393,168 @@ class Caravan(pygame.sprite.Sprite):
     def collidepoint(self, c):
         self.rect.collidepoint(c)
 
-    def draw(self, screen, heatmap, alpha):
+    def draw(self, screen, local_info, alpha):
         # pygame.draw.circle(screen, tile_info.WHITE, (self.x, self.y), 8)
         # pygame.draw.circle(screen, tile_info.BLACK, (self.x, self.y), 8, 4)
+        if local_info or self.selected:
+            if self.route != []:
+                pygame.draw.lines(screen, tile_info.BLACK, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 3)
+                pygame.draw.lines(screen, tile_info.WHITE, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 1)
+
+            for t in [x for x in self.visible_vinicity if x != self.tile]:
+                # t.draw_heatmap(alpha, _type=parameters.HEATMAP_TYPE)
+                pygame.draw.rect(alpha, tuple(list([t.heat_color_score[0], t.heat_color_score[1], t.heat_color_score[2]]) + [int(parameters.HEATMAP_ALPHA/1.2)]), t.rect)
+            for t in self.explored_tiles:
+                pygame.draw.rect(alpha, tuple(list(tile_info.WHITE) + [parameters.HEATMAP_ALPHA/1.5]), t.rect, 1)
+                # pygame.draw.line(alpha, tuple(list(tile_info.WHITE) + [parameters.HEATMAP_ALPHA/2]), self.rect.center, t.rect.center, 1)                
+            for t in self.possible_settlement_tile:
+                pygame.draw.rect(alpha, tuple(list(tile_info.MAGENTA) + [parameters.HEATMAP_ALPHA]), t.rect, 2)
+                # pygame.draw.line(alpha, tuple(list(tile_info.MAGENTA) + [parameters.HEATMAP_ALPHA]), self.rect.center, t.rect.center, 3)                
+
         screen.blit(self.image, self.rect)
         if self.selected:
             pygame.draw.rect(screen, tile_info.RED, self.rect, 2)
-        if self.route != []:
-            pygame.draw.lines(screen, tile_info.BLACK, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 3)
-            pygame.draw.lines(screen, tile_info.WHITE, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 1)
 
-        if heatmap:
-            for t in self.visible_vinicity:
-                t.draw_heatmap(alpha, _type=parameters.HEATMAP_TYPE )
-                # pygame.draw.rect(screen, tile_info.RED, t.rect, 1)
+class Migrant_Village(Caravan):
+    """docstring for Migrants"""
+    def __init__(self, _tile, population_count=-1, name="migrants_village"):
+        super(Migrant_Village, self).__init__(_tile, population_count, name)
+        
+        _sum = 0
+        for vil in parameters.VILLAGE_LIST:
+            _sum += vil.population_count
+        _dict = {}
+        for vil in parameters.VILLAGE_LIST:
+            _dict[vil] = float(vil.population_count) / float(_sum)
+        self.village_to_go = utils.weighted_choice(_dict)
+
+        # self.village_to_go = random.choice(parameters.VILLAGE_LIST)
+
+        self.population_count /= 10
+        
+    def choose_destination(self):
+        # self.destination = utils.getRandomTile(tilemap=list(set(parameters.MAP_TILES).symmetric_difference(set(self.explored_tiles))))
+        self.destination = self.village_to_go.tile
+        
+        self.route = pf.astar(self.tile, self.destination, forbidden=[])
+        
+    def next_step(self):
+        self.visible_vinicity = utils.getTilesInRadius(self.tile, self.vision_range)
+
+        if self.tile.village != None and self.tile.village == self.village_to_go:
+            self.integrate()
+            return
+
+        if self.destination == None or len(self.route) == 0:
+            self.choose_destination()
+
+        if self.tile_goto == None and self.route != []:
+            self.tile_goto = self.route[0]
+            self.walking_left = max(1, int(round(self.tile_goto.getCost() * (self.speed_modifier) * 2, 2)))
+
+        if self.tile_goto != None and self.walking_left > 0:
+            self.walking_left -= 1
+            if self.walking_left <= 0:
+                self.set_next_tile()
+                self.tile_goto = None
+
+    def integrate(self):
+        self.village_to_go.population_count += self.population_count
+        self.self_destroy()
+
+    def self_destroy(self):
+        self.tile.caravan.remove(self)
+        parameters.MIGRANTS_VILLAGE_LIST.remove(self)
+    
+    def draw(self, screen, local_info):
+        screen.blit(self.image, self.rect)
+        if local_info:
+            if self.route != []:
+                pygame.draw.lines(screen, tile_info.BLACK, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 3)
+                pygame.draw.lines(screen, tile_info.WHITE, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 1)
+
+class Emissary_Village(Migrant_Village):
+    def __init__(self, _tile, village, population_count=10, name="emissary"):
+        super(Emissary_Village, self).__init__(_tile, population_count, name)
+        self.village = village
+        self.village_to_go = None
+
+        self.village.population_count -= self.population_count
+
+        self.r = None
+
+        parameters.EMISSARY_VILLAGE_LIST.append(self)
+
+    def draw(self, screen, local_info, alpha):
+        pygame.draw.circle(screen, tile_info.BLACK, self.rect.center, 6)
+        pygame.draw.circle(screen, tile_info.YELLOW_3, self.rect.center, 4)
+        if local_info:
+            if self.village_to_go != None:
+                pygame.draw.line(alpha, tuple(list(tile_info.WHITE)+[128]), self.tile.rect.center, self.village_to_go.tile.rect.center, 2)
+
+    def choose_destination(self):
+        if self.village_to_go == None:
+            self.destination = utils.getRandomTile(tilemap=list(set(parameters.MAP_TILES).symmetric_difference(set(self.explored_tiles))))
+        else:
+            self.destination = self.village_to_go.tile
+        
+        self.route = pf.astar(self.tile, self.destination, forbidden=[])
+
+    def next_step(self):
+        self.visible_vinicity = utils.getTilesInRadius(self.tile, self.vision_range)
+
+        if self.tile.village != None and self.tile.village == self.village_to_go:
+            self.integrate()
+            return
+
+        if self.destination == None or len(self.route) == 0:
+            self.choose_destination()
+
+        if self.tile_goto == None and self.route != []:
+            self.tile_goto = self.route[0]
+            self.walking_left = max(1, int(round(self.tile_goto.getCost() * (self.speed_modifier) * 2, 2)))
+
+        if self.tile_goto != None and self.walking_left > 0:
+            self.walking_left -= 1
+            if self.walking_left <= 0:
+                self.set_next_tile()
+                self.tile_goto = None
+
+    # self.routes           = []
+    # self.known_cities     = []
+    # self.connected_cities = []
+    # self.noroute_cities   = []
+    def integrate(self):
+        self.village_to_go.population_count += self.population_count
+
+        self.village.connected_cities.append(self.village_to_go)
+        self.village_to_go.connected_cities.append(self.village)
+
+        self.village.routes.append(self.r)
+        self.village_to_go.routes.append(self.r.reversed())
+
+        self.village.nb_emissary -= 1
+
+        self.self_destroy()
+
+    def self_destroy(self):
+        self.tile.caravan.remove(self)
+        parameters.EMISSARY_VILLAGE_LIST.remove(self)
+
+    def scanVinicity(self):
+        if self.r == None:
+            for v in self.visible_vinicity:
+                if v not in self.explored_tiles:
+                    self.explored_tiles.append(v)
+                if v.village != None and (v.village in self.village.connected_cities or v.village in self.village.noroute_cities):
+                    continue
+                else:
+                    self.r = Route(self.village.tile, self.village_to_go.tile)
+                    if self.r.possible():
+                        self.village_to_go = v.village
+                    else:
+                        self.village.noroute_cities.append(self.village_to_go)
+                        self.r = None
 
 class Village(pygame.sprite.Sprite):
     """docstring for Village"""
@@ -297,47 +565,82 @@ class Village(pygame.sprite.Sprite):
         self.tile = tile
 
         self.tile.village = self
-        self.tile.color = tile_info.GRAY
+        self.tile.color = tile_info.BLACK
 
-        computeHeatMap_Score()
+        self.grow_rate = -1.0
 
-        self.grow_rate = random.random()*0.2 + 0.95
+        self.effect_random_placement = (random.randrange(-2, 2), random.randrange(-2, 2))
+        self.effect_size = random.randrange(7, 9)
 
-        # Create an image of the block, and fill it with a color.
-        # This could also be an image loaded from the disk.
-        # self.image = pygame.Surface([width, height])
-        # self.image.fill(color)
-        # self.image = pygame.image.load(os.path.join('Sprites', 'caravan.png'))
-
-        # Fetch the rectangle object that has the dimensions of the image
-        # Update the position of this object by setting the values of rect.x and rect.y
-        # self.rect = pygame.Rect(self.x-(self.image.get_rect().size[0]/2), 
-        #                         self.y-(self.image.get_rect().size[1]/2),
-        #                         self.image.get_rect().size[0],
-        #                         self.image.get_rect().size[1])
-        # self.rect = self.image.get_rect()
+        self.rect = self.tile.rect
 
         parameters.VILLAGE_LIST.append(self)
 
-    def update(self):
-        self.population_count *= self.grow_rate
-        self.grow_rate = random.random()*0.2 + 0.95
+        # self.tile.evaluate(forced=True)
+        computeHeatMap_Score(forced=True)
 
-    def draw(self, screen):
-        pass
+        self.routes           = []
+        self.known_cities     = []
+        self.connected_cities = []
+        self.noroute_cities   = []
+
+        self.nb_emissary = 0
+
+    def new_grow_rate(self):
+        self.grow_rate = random.random()*0.04 + 0.985
+
+    def next_step(self, _step):
+        if _step%(30*3) == 0:
+            self.new_grow_rate()
+            self.population_count = int(self.population_count*self.grow_rate)
+
+        if self.population_count >= 150 and self.nb_emissary == 0:
+            Emissary_Village(_tile=self.tile, village=self, name="emissary_"+self.name)
+            self.nb_emissary += 1
 
 
+    def draw(self, screen, alpha, local_info, _FAST_DISPLAY=parameters.FAST_DISPLAY):
+        for r in self.routes:
+            pygame.draw.lines(screen, tile_info.BLACK, False, [self.tile.rect.center] + [x.rect.center for x in r.route], 3)
+            pygame.draw.lines(screen, tile_info.WHITE, False, [self.tile.rect.center] + [x.rect.center for x in r.route], 1)
 
-def computeHeatMap_Score():
+        if not _FAST_DISPLAY:
+            pygame.draw.polygon(screen, 
+                        tile_info.GRAY_EFFECT, 
+                        utils.trianglePointsFromCenter((self.rect.center[0] + self.effect_random_placement[0], self.rect.center[1] + self.effect_random_placement[1]), self.effect_size))
+
+        if local_info:
+            for t in utils.getTilesInRadius(self.tile, 2):
+                pygame.draw.rect(alpha, tuple(list(tile_info.BLACK) + [parameters.HEATMAP_ALPHA/2]), t.rect, 1)
+
+class Route(object):
+    def __init__(self, departure, arrival):
+        super(Route, self).__init__()
+        self.departure = departure
+        self.arrival = arrival
+
+        self.route = pf.astar(departure, arrival, forbidden=["shallow_water", "deep_water"])
+        # if self.route == []:
+        #     print("No route possible")
+
+    def possible(self):
+        return self.route != None
+
+    def reversed(self):
+        return Route(arrival, departure)
+        
+
+
+def computeHeatMap_Score(forced=False):
     print("Compute heat map (score)")
 
     red = colour.Color("red")
-    colors = list(red.range_to(colour.Color("green"),15))
+    colors = list(red.range_to(colour.Color("green"),20))
     colors = [tuple([int(x*255) for x in c.rgb]) for c in colors]
 
     d_values = {}
     for mt in parameters.MAP_TILES:
-        d_values[mt] = mt.evaluate()
+        d_values[mt] = mt.evaluate(forced=forced)
 
     parameters.MAX_TILE_SCORE = round(max(d_values.iteritems(), key=operator.itemgetter(1))[1], 4)
 
@@ -352,7 +655,7 @@ def computeHeatMap_Cost():
     print("Compute heat map (cost)")
 
     red = colour.Color("green")
-    colors = list(red.range_to(colour.Color("red"),15))
+    colors = list(red.range_to(colour.Color("red"),20))
     colors = [tuple([int(x*255) for x in c.rgb]) for c in colors]
 
     d_values = {}
@@ -367,7 +670,7 @@ def computeHeatMap_Cost():
 
     print("parameters.MAX_TILE_COST={}".format(parameters.MAX_TILE_COST))
 
-def generateRiver(starters = ["mountain"], enders=["sea", "ocean"]):
+def generateRiver(starters = ["mountain"], enders=["shallow_water", "deep_water"]):
     print("Generate rivers")
     river_starters = [x for x in parameters.MAP_TILES if x.getType() in starters]
     start = random.choice(river_starters)
@@ -379,13 +682,28 @@ def generateRiver(starters = ["mountain"], enders=["sea", "ocean"]):
     if l_river_enders == [] or river_starters == []:
         return []
 
-    _route = [start] + pf.astar(start, end)
+    _route = [start] + pf.astar(start, end, diagonal_neighbourhood=True)
     route = []
 
     for s in _route:
         if s.getType() not in tile_info.WATER_TYPES:
+            if s.river:
+                print("Merge with crossing river")
+                route.append(s)
+                break
+            s_neigh = utils.getNeighboursFrom1D(s.index, parameters.MAP_TILES, parameters.CANVAS_WIDTH, parameters.CANVAS_HEIGHT)
+            b = False
+            for sn in s_neigh:
+                if sn.river:
+                    route.append(sn)
+                    b=True
+                    break
+            if b: 
+                print("Merge with neighbouring river")
+                break
             route.append(s)
         else:
+            print("Merge with shallow or deep")
             route.append(s)
             break
 
@@ -436,6 +754,7 @@ def main():
     run = True
     start = False
     step_counter = 0
+    days = 0
     paused = False
     selected_tile = None
     selected_caravan = None
@@ -445,6 +764,7 @@ def main():
     simulation_started = False
     caravan_lauched = False
     heatmap = False
+    local_info = False
 
     t_loop = 0.01
     q_time = []
@@ -463,7 +783,7 @@ def main():
         t_update = start_time #time.time() if moved from this line
 
         step_counter += 1
-        if(step_counter%100000 == 0): step_counter = 0
+        # if(step_counter%100000 == 0): step_counter = 0
 
         info_surface.fill(tile_info.WHITE)
         alpha_surface.fill(tile_info.EMPTY)
@@ -490,6 +810,7 @@ def main():
                     caravan_lauched = False
 
                     del parameters.RIVERS[:]
+                    del parameters.MIGRANTS_VILLAGE_LIST[:]
 
                     paused = False
 
@@ -501,6 +822,8 @@ def main():
                     parameters.FAST_DISPLAY = not parameters.FAST_DISPLAY
                 elif event.key == pygame.K_h:
                     heatmap = not heatmap
+                if event.key == pygame.K_l:
+                    local_info = not local_info
                 if event.key == pygame.K_RIGHT:
                     parameters.HEATMAP_TYPE = ((parameters.HEATMAP_TYPE+1)%2)
                     # print(parameters.HEATMAP_TYPE)
@@ -522,10 +845,12 @@ def main():
                                 break
                 elif event.button == 1:
                     for cp in parameters.MAP_TILES:
-                        if cp.collidepoint(pygame.mouse.get_pos()) and cp != goal_pos:
+                        if cp.collidepoint(pygame.mouse.get_pos()):
                             selected_tile = cp
                             if len(cp.caravan) > 0:
                                 selected_caravan = cp.caravan[0]
+                            else:
+                                selected_caravan = None
                     # for car in parameters.CARAVAN_LIST:
                     #     if car.collidepoint(pygame.mouse.get_pos()) and car != selected_caravan:
                     #         selected_caravan = car 
@@ -566,8 +891,8 @@ def main():
                     for cp in parameters.MAP_TILES:
                         if cp.collidepoint(pygame.mouse.get_pos()):
                             selected_tile = cp
-                            if len(cp.caravan) > 0:
-                                selected_caravan = cp.caravan[0]
+                            # if len(cp.caravan) > 0:
+                            #     selected_caravan = cp.caravan[0]
                             break
                 except AttributeError:
                     pass
@@ -602,7 +927,7 @@ def main():
         if simulation_started:
             if not fixed:
                 fix_tiles()
-                for i in range(0, 10):
+                for i in range(0, parameters.NB_RIVERS):
                     generateRiver()
                 fixed = True
             if not caravan_lauched:
@@ -610,16 +935,29 @@ def main():
                 computeHeatMap_Cost()
 
                 for i in xrange(0,parameters.STARTING_NB_CARAVAN):
-                    _t = utils.getEdgeTile(forbidden=["sea", "ocean"])
+                    _t = utils.getEdgeTile(forbidden=["shallow_water", "deep_water"])
                     while len(_t.caravan) > 1:
-                        _t = utils.getEdgeTile(forbidden=["sea", "ocean"])
+                        _t = utils.getEdgeTile(forbidden=["shallow_water", "deep_water"])
                     car = Caravan(_t, name="caravan"+str(i))
                     parameters.CARAVAN_LIST.append(car)
                 caravan_lauched = True
 
             elif not paused:
+                days += 1
+
+                if step_counter%30 == 0:
+                    if random.random() < len(parameters.VILLAGE_LIST)*0.01:
+                        for i in range(1, 3):
+                            parameters.MIGRANTS_VILLAGE_LIST.append(Migrant_Village(utils.getEdgeTile(forbidden=["shallow_water", "deep_water"])))
+
                 for car in parameters.CARAVAN_LIST:
-                    car.next_step()
+                    car.next_step(step_counter)
+                for vil in parameters.VILLAGE_LIST:
+                    vil.next_step(step_counter)
+                for mig in parameters.MIGRANTS_VILLAGE_LIST:
+                    mig.next_step()
+                for emis in parameters.EMISSARY_VILLAGE_LIST:
+                    emis.next_step()
         t_update = time.time() - t_update
 
         #DRAW
@@ -633,12 +971,26 @@ def main():
                     cp.draw_heatmap(alpha_surface, _type=parameters.HEATMAP_TYPE)
 
             for r in parameters.RIVERS:
-                if len(r) > 1 and r != [] and r != None:
+                len_r = len(r)
+                if len_r > 1:
                     # print(len(r))
-                    pygame.draw.lines(screen, tile_info.BLUE_2, False, [x.rect.center for x in r], 6) 
+                    pygame.draw.lines(screen, tile_info.CYAN, False, [x.rect.center for x in r], 4) 
 
             for car in parameters.CARAVAN_LIST:
-                car.draw(screen, heatmap, alpha_surface)
+                if car != selected_caravan and car.selected:
+                    car.selected = False
+                car.draw(screen, local_info, alpha_surface)
+
+            for mig in parameters.MIGRANTS_VILLAGE_LIST:
+                mig.draw(screen, local_info)
+
+            for emis in parameters.EMISSARY_VILLAGE_LIST:
+                emis.draw(screen, local_info, alpha_surface)
+                
+
+            for vil in parameters.VILLAGE_LIST:
+                vil.draw(screen, alpha_surface, local_info, _FAST_DISPLAY=parameters.FAST_DISPLAY)
+
 
             # if test_path != None and len(test_path) > 1:
             #     pygame.draw.circle(screen, tile_info.GREEN, start_pos.rect.center, 5)
@@ -678,6 +1030,14 @@ def main():
         info_surface.blit(displ_text2, (10, fontsize*1.2 + shift))
         shift = fontsize*1.2 + shift
 
+        nb_years  = days/(30*12)
+        nb_months = (days%(30*12))/30
+        nb_days   = (days%(30*12))%30
+        text_date = "{} days {} months {} years since first colons".format(nb_days, nb_months, nb_years)
+        displ_text_date = font.render(text_date, True, tile_info.BLACK)
+        info_surface.blit(displ_text_date, (10, fontsize*1.2 + shift))
+        shift = fontsize*1.2 + shift
+
         shift = fontsize + shift
 
 
@@ -692,15 +1052,26 @@ def main():
             info_surface.blit(displ_header, (10, shift + fontsize + 2))
             shift = shift + fontsize + 2
 
-            selected_tile_info = "{} ({}) eval{}/{}".format(selected_tile.getType(), selected_tile.getCost(), selected_tile.evaluate(), parameters.MAX_TILE_SCORE)
+            selected_tile_info = "{} ({}), {} eval{}/{}".format(selected_tile.getType(), selected_tile.getCost(), "" if not selected_tile.river else "river" ,selected_tile.evaluate(), parameters.MAX_TILE_SCORE)
             displ_selected_tile_info = font.render(selected_tile_info, True, tile_info.BLACK)
             info_surface.blit(displ_selected_tile_info, (10, shift + fontsize + 2))
             shift = shift + fontsize
 
+            # print(selected_tile.detail_score)
+
             for car in selected_tile.caravan:
-                selected_tile_caravan = "{}, {} people".format(car.name
-                                                                , car.population_count)
+                selected_tile_caravan = "{}, {} people, {} tiles explored".format(car.name
+                                                                , car.population_count
+                                                                , len(caravan.explored_tiles))
                 displ_selected_tile_info = font.render(selected_tile_caravan, True, tile_info.BLACK)
+                info_surface.blit(displ_selected_tile_info, (10, shift + fontsize + 2))
+                shift = shift + fontsize
+
+            if selected_tile.village != None:
+                selected_tile_village = "{}, {} people".format(selected_tile.village.name
+                                                                , selected_tile.village.population_count
+                                                                )
+                displ_selected_tile_info = font.render(selected_tile_village, True, tile_info.BLACK)
                 info_surface.blit(displ_selected_tile_info, (10, shift + fontsize + 2))
                 shift = shift + fontsize
         # else:
@@ -718,14 +1089,22 @@ def main():
 
         # if selected_caravan != None:
         for caravan in parameters.CARAVAN_LIST:
-            selected_caravan_text = "   {}, {} people, {}% spd".format(caravan.name
+            selected_caravan_text = "   {}, {} ppl, x{} spd, {} thresh".format(caravan.name
                                                                 , caravan.population_count
-                                                                , (1.0-caravan.speed_modifier)*100)
+                                                                , (caravan.speed_modifier)
+                                                                , round(caravan.score_thresh, 2))
             displ_selected_caravan = font.render(selected_caravan_text, True, tile_info.BLACK)
             info_surface.blit(displ_selected_caravan, (10, shift + fontsize + 2))
             shift = shift + fontsize
 
-            selected_caravan_text = "      {} walking left, {} tile(s) left".format(caravan.walking_left, len(caravan.route))
+            selected_caravan_text = (
+                                    "      {}% explored, {}/{} possible tiles".format(
+                                        #   len(caravan.explored_tiles)),
+                                            round((float(len(caravan.explored_tiles))/float(len(parameters.MAP_TILES)))*100.0, 1)
+                                            , len(caravan.possible_settlement_tile)
+                                            , caravan.location_memory
+                                        )
+                                    )
             displ_selected_caravan = font.render(selected_caravan_text, True, tile_info.BLACK)
             info_surface.blit(displ_selected_caravan, (10, shift + fontsize + 2))
             shift = shift + fontsize
@@ -748,10 +1127,29 @@ def main():
         shift = fontsize*1.2 + shift
 
         for village in parameters.VILLAGE_LIST:
-            villages_text = "   {}, {} people".format(village.name
-                                                    , village.population_count)
+            villages_text = "   {}, {} ppl (x{})".format(village.name
+                                                    , village.population_count
+                                                    # , round((1.0-village.grow_rate)*100.0, 2))
+                                                    , round((village.grow_rate), 4))
             displ_villages_text = font.render(villages_text, True, tile_info.BLACK)
             info_surface.blit(displ_villages_text, (10, shift + fontsize + 2))
+            shift = shift + fontsize
+
+        for migr in parameters.MIGRANTS_VILLAGE_LIST:
+            migrants_txt = "{}, {} ppl towards {}".format(migr.name
+                                                    , migr.population_count
+                                                    , migr.village_to_go.name
+                                                    )
+
+            displ_migrants_txt = font.render(migrants_txt, True, tile_info.BLACK)
+            info_surface.blit(displ_migrants_txt, (10, shift + fontsize + 2))
+            shift = shift + fontsize
+
+        for emis in parameters.EMISSARY_VILLAGE_LIST:
+            text = "{} out there".format(emis.name)
+
+            displ_text = font.render(text, True, tile_info.BLACK)
+            info_surface.blit(displ_text, (10, shift + fontsize + 2))
             shift = shift + fontsize
 
         #Blit and Flip surfaces

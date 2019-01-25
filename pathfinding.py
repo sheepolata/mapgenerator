@@ -10,7 +10,7 @@ def heuristic_cost_estimate(_current, _goal):
     return res
 
 #start and goal are tiles
-def astar(_start, _goal, maptiles=parameters.MAP_TILES, forbidden=[]):
+def astar(_start, _goal, maptiles=parameters.MAP_TILES, forbidden=[], diagonal_neighbourhood=True):
     # The set of nodes already evaluated
     closedSet = []
 
@@ -59,7 +59,7 @@ def astar(_start, _goal, maptiles=parameters.MAP_TILES, forbidden=[]):
         closedSet.append(current)
 
         #For each neighbours of current
-        for _neighbour in utils.getNeighboursFrom1D(current.index, maptiles, parameters.CANVAS_WIDTH, parameters.CANVAS_HEIGHT):
+        for _neighbour in utils.getNeighboursFrom1D(current.index, maptiles, parameters.CANVAS_WIDTH, parameters.CANVAS_HEIGHT, eight_neigh=diagonal_neighbourhood):
             if _neighbour in closedSet:
                 continue
 
@@ -71,8 +71,10 @@ def astar(_start, _goal, maptiles=parameters.MAP_TILES, forbidden=[]):
             #May add utils.distance2p(current.getPose(), _neighbour.getPose()) to cost BUT decrease perf quite a lot
             tentative_gScore = (g_score[current] 
                                 + _neighbour.getCost() 
-                                + (1*((_neighbour.h+_neighbour.w)/2) if (not utils.isDiagonalNeighbour(current.getPose(), _neighbour.getPose()))
-                                    else sqrt(2)*((_neighbour.h+_neighbour.w)/2))
+                                + (1*((_neighbour.h+_neighbour.w)/2) 
+                                    if (not utils.isDiagonalNeighbour(current.getPose(), _neighbour.getPose()))
+                                    else sqrt(2)*((_neighbour.h+_neighbour.w)/2)
+                                  )
                                 )
             if tentative_gScore >= g_score[_neighbour] or _neighbour.getType() in forbidden:
                 continue

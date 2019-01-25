@@ -75,6 +75,9 @@ def lcm(a, b):
     """Compute the lowest common multiple of a and b"""
     return a * b / gcd(a, b)
 
+def clamp(x, a, b):
+    return max(a, min(x, b))
+
 def getNeighboursFrom1D(elem_i, list=parameters.MAP_TILES, grid_w=parameters.CANVAS_WIDTH, grid_h=parameters.CANVAS_HEIGHT, eight_neigh=parameters.EIGHT_NEIGHBOURS):
     neighbours = []
 
@@ -223,8 +226,10 @@ def getRandomTile(tilemap=parameters.MAP_TILES, p=None, forbidden=[]):
             res = random.choice(tilemap)
         return res
 
-def getTilesInRadius(tile, radius):
-    res = [tile]
+def getTilesInRadius(tile, radius, include_self=True):
+    res = []
+    if include_self:
+        res = [tile]
     neigh = getNeighboursFrom1D(elem_i=tile.index, eight_neigh=False)
     res += neigh
 

@@ -14,6 +14,7 @@ CYAN         = (0,255,255)
 MAGENTA      = (255,0,255)
 SILVER       = (192,192,192)
 GRAY         = (128,128,128)
+GRAY_EFFECT  = (98,98,98)
 MAROON       = (128,0,0)
 BROWN        = (139,69,19)
 BROWN_EFFECT = (119,49,0)
@@ -72,13 +73,13 @@ LANDSCAPE_MOUNTAINS  = {
                     }
 
 COLOR_TO_TYPE = {
-    BLACK     : "unknow",
+    BLACK     : "city",
     WHITE     : "unknow",
     RED       : "unknow",
     RED_2     : "unknow",
     RED_3     : "unknow",
     LIME      : "unknow",
-    BLUE      : "sea",
+    BLUE      : "shallow_water",
     BLUE_2    : "unknow",
     BLUE_3    : "unknow",
     YELLOW    : "desert",
@@ -97,35 +98,62 @@ COLOR_TO_TYPE = {
     GREEN_2   : "forest",
     PURPLE    : "unknow",
     TEAL      : "unknow",
-    NAVY      : "ocean"
+    NAVY      : "deep_water"
 }
 
-USED_TYPES = ["sea", "ocean", "plain", "forest", "desert", "hill", "mountain", "city"]
+USED_TYPES = ["shallow_water", "deep_water", "plain", "forest", "desert", "hill", "mountain", "city"]
 LAND_TYPES = ["plain", "forest", "desert", "hill", "mountain", "city"]
-WATER_TYPES = ["sea", "ocean"]
+WATER_TYPES = ["shallow_water", "deep_water"]
 
 TYPE_TO_COST = {
-    "unknow"    : 1.0,
-    "sea"       : 22.0,
-    "ocean"     : 28.0,
-    "plain"     : 1.0,
-    "forest"    : 4.0,
-    "desert"    : 8.0,
-    "hill"      : 4.0,
-    "mountain"  : 14.0,
-    "city"      : 2.0
+    "unknow"        : 1.0,
+    "shallow_water" : 22.0,
+    "deep_water"    : 28.0,
+    "plain"         : 1.0,
+    "forest"        : 4.0,
+    "desert"        : 8.0,
+    "hill"          : 4.0,
+    "mountain"      : 14.0,
+    "city"          : 2.0
+}
+
+SCORE_RIVER = 0.3
+SCORE_NEIGH_RIVER = 0.3
+
+TYPE_TO_SCORE = {
+    "unknow"        : 0.0,
+    "shallow_water" : -3.0,
+    "deep_water"    : -3.0,
+    "plain"         : -0.1,
+    "forest"        : 0.4,
+    "desert"        : -0.4,
+    "hill"          : 0.4,
+    "mountain"      : 0.2,
+    "city"          : -3.0
+}
+
+TYPE_TO_WEIGTH_SCORE = {
+    "unknow"        : 0.0,
+    "shallow_water" : 0.4,
+    "deep_water"    : 0.3,
+    "plain"         : 0.6,
+    "forest"        : 0.4,
+    "desert"        : -0.6,
+    "hill"          : 0.1,
+    "mountain"      : -0.2,
+    "city"          : -3.0
 }
 
 TYPE_TO_MULTIPLIER = {
-    "unknow"     : 1.0 / TYPE_TO_COST["unknow"],
-    "sea"        : 1.0 / TYPE_TO_COST["sea"],
-    "ocean"      : 1.0 / TYPE_TO_COST["ocean"],
-    "plain"      : 1.0 / TYPE_TO_COST["plain"],
-    "forest"     : 1.0 / TYPE_TO_COST["forest"],
-    "desert"     : 1.0 / TYPE_TO_COST["desert"],
-    "hill"       : 1.0 / TYPE_TO_COST["hill"],
-    "mountain"   : 1.0 / TYPE_TO_COST["mountain"],
-    "city"       : 1.0 / TYPE_TO_COST["city"],
+    "unknow"        : 1.0 / TYPE_TO_COST["unknow"],
+    "shallow_water" : 1.0 / TYPE_TO_COST["shallow_water"],
+    "deep_water"    : 1.0 / TYPE_TO_COST["deep_water"],
+    "plain"         : 1.0 / TYPE_TO_COST["plain"],
+    "forest"        : 1.0 / TYPE_TO_COST["forest"],
+    "desert"        : 1.0 / TYPE_TO_COST["desert"],
+    "hill"          : 1.0 / TYPE_TO_COST["hill"],
+    "mountain"      : 1.0 / TYPE_TO_COST["mountain"],
+    "city"          : 1.0 / TYPE_TO_COST["city"],
 
 }
 
