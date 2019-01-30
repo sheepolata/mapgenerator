@@ -264,6 +264,7 @@ class Caravan(pygame.sprite.Sprite):
         self.visible_vinicity = []
         self.explored_tiles = []
         self.possible_settlement_tile = []
+        self.previous_possible_settlement_tile = []
         self.location_memory = 10
         self.map_percent = 0.15
 
@@ -295,7 +296,7 @@ class Caravan(pygame.sprite.Sprite):
         if self.destination == None or len(self.route) == 0:
             if not self.settling:
                 self.choose_destination()
-            elif self.old_settlement_tile != self.settlement_tile:
+            elif self.old_settlement_tile != self.settlement_tile and self.previous_possible_settlement_tile != self.possible_settlement_tile:
                 self.lastCheckBeforeSettling()
             else:
                 self.makeVillage()
@@ -358,6 +359,8 @@ class Caravan(pygame.sprite.Sprite):
     def scanVinicity(self):
         # print("TEST ", operator.methodcaller('evaluate')(parameters.MAP_TILES[0]))
         min_thresh_tile = None
+        self.previous_possible_settlement_tile = self.possible_settlement_tile
+
         if self.possible_settlement_tile != []:
             min_thresh_tile = min(self.possible_settlement_tile, key=operator.methodcaller('evaluate'))
 
@@ -479,7 +482,12 @@ class Emissary_Village(Migrant_Village):
         self.village = village
         self.village_to_go = None
 
+        self.explored_tiles = []
+
         self.village.population_count -= self.population_count
+
+        self.vision_range = 8
+        self.speed_modifier = 0.1
 
         self.r = None
 
@@ -489,8 +497,12 @@ class Emissary_Village(Migrant_Village):
         pygame.draw.circle(screen, tile_info.BLACK, self.rect.center, 6)
         pygame.draw.circle(screen, tile_info.YELLOW_3, self.rect.center, 4)
         if local_info:
+            pygame.draw.line(alpha, tuple(list(tile_info.WHITE)+[128]), self.tile.rect.center, self.village.tile.rect.center, 2)
+            if self.route != []:
+                    pygame.draw.lines(screen, tile_info.BLACK, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 3)
+                    pygame.draw.lines(screen, tile_info.WHITE, False, [self.tile.rect.center] + [x.rect.center for x in self.route], 1)
             if self.village_to_go != None:
-                pygame.draw.line(alpha, tuple(list(tile_info.WHITE)+[128]), self.tile.rect.center, self.village_to_go.tile.rect.center, 2)
+                pygame.draw.line(alpha, tuple(list(tile_info.RED)+[128]), self.tile.rect.center, self.village_to_go.tile.rect.center, 2)
 
     def choose_destination(self):
         if self.village_to_go == None:
@@ -502,6 +514,7 @@ class Emissary_Village(Migrant_Village):
 
     def next_step(self):
         self.visible_vinicity = utils.getTilesInRadius(self.tile, self.vision_range)
+        self.scanVinicity()
 
         if self.tile.village != None and self.tile.village == self.village_to_go:
             self.integrate()
@@ -530,6 +543,8 @@ class Emissary_Village(Migrant_Village):
         self.village.connected_cities.append(self.village_to_go)
         self.village_to_go.connected_cities.append(self.village)
 
+        if(self.r == None):
+            print("IN INTEGRATE: R == NONE ==> BUG")
         self.village.routes.append(self.r)
         self.village_to_go.routes.append(self.r.reversed())
 
@@ -542,19 +557,29 @@ class Emissary_Village(Migrant_Village):
         parameters.EMISSARY_VILLAGE_LIST.remove(self)
 
     def scanVinicity(self):
+        if self.village_to_go != None:
+            return
+
         if self.r == None:
             for v in self.visible_vinicity:
                 if v not in self.explored_tiles:
                     self.explored_tiles.append(v)
-                if v.village != None and (v.village in self.village.connected_cities or v.village in self.village.noroute_cities):
-                    continue
-                else:
-                    self.r = Route(self.village.tile, self.village_to_go.tile)
-                    if self.r.possible():
-                        self.village_to_go = v.village
+                if v.village != None:
+                    if (v.village == self.village 
+                        or v.village in self.village.connected_cities 
+                        or v.village in self.village.noroute_cities):
+                        continue
                     else:
-                        self.village.noroute_cities.append(self.village_to_go)
-                        self.r = None
+                        self.village_to_go = v.village
+        elif self.r == None and self.village_to_go != None:
+            self.r = Route(self.village.tile, self.village_to_go.tile)
+
+        if self.r != None and self.r.possible():
+            self.village_to_go = v.village
+        else:
+            print("R == NONE || R NOT POSSIBLE")
+            self.village.noroute_cities.append(self.village_to_go)
+            self.r = None
 
 class Village(pygame.sprite.Sprite):
     """docstring for Village"""
@@ -594,7 +619,7 @@ class Village(pygame.sprite.Sprite):
             self.new_grow_rate()
             self.population_count = int(self.population_count*self.grow_rate)
 
-        if self.population_count >= 150 and self.nb_emissary == 0:
+        if self.population_count >= 50 and self.nb_emissary == 0:
             Emissary_Village(_tile=self.tile, village=self, name="emissary_"+self.name)
             self.nb_emissary += 1
 
@@ -619,7 +644,7 @@ class Route(object):
         self.departure = departure
         self.arrival = arrival
 
-        self.route = pf.astar(departure, arrival, forbidden=["shallow_water", "deep_water"])
+        self.route = pf.astar(self.departure, self.arrival, forbidden=["shallow_water", "deep_water"])
         # if self.route == []:
         #     print("No route possible")
 
