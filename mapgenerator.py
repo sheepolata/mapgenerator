@@ -230,8 +230,8 @@ class Caravan(pygame.sprite.Sprite):
             self.population_count = population_count
 
         # self.speed_modifier =  1.0 + round(utils.normalise(self.population_count, parameters.MIN_POP_PER_CARAVAN*0.8, parameters.MAX_POP_PER_CARAVAN*1.2), 3)
-        self.speed_modifier = round(0.25 + random.random()*0.50, 2)
-        # self.speed_modifier = 1.0
+        # self.speed_modifier = round(0.25 + random.random()*0.50, 2)
+        self.speed_modifier = 0.05
 
         # self.speed_modifier = 1 + round(self.population_count / parameters.MAX_POP_PER_CARAVAN, 2)
 
@@ -599,17 +599,25 @@ class Village(pygame.sprite.Sprite):
 
         self.rect = self.tile.rect
 
-        parameters.VILLAGE_LIST.append(self)
-
-        # self.tile.evaluate(forced=True)
-        computeHeatMap_Score(forced=True)
-
         self.routes           = []
         self.known_cities     = []
         self.connected_cities = []
         self.noroute_cities   = []
 
+        if parameters.VILLAGE_LIST != []:
+            route_village = random.choice(parameters.VILLAGE_LIST)
+            self.routes.append(Route(self.tile, route_village.tile))
+
+
+
+        parameters.VILLAGE_LIST.append(self)
+
+        # self.tile.evaluate(forced=True)
+        computeHeatMap_Score(forced=True)
+
         self.nb_emissary = 0
+
+
 
     def new_grow_rate(self):
         self.grow_rate = random.random()*0.04 + 0.985
@@ -619,14 +627,16 @@ class Village(pygame.sprite.Sprite):
             self.new_grow_rate()
             self.population_count = int(self.population_count*self.grow_rate)
 
-        if self.population_count >= 50 and self.nb_emissary == 0:
-            Emissary_Village(_tile=self.tile, village=self, name="emissary_"+self.name)
-            self.nb_emissary += 1
+        # if self.population_count >= 50 and self.nb_emissary == 0:
+            # Emissary_Village(_tile=self.tile, village=self, name="emissary_"+self.name)
+            # self.nb_emissary += 1
+
+
 
 
     def draw(self, screen, alpha, local_info, _FAST_DISPLAY=parameters.FAST_DISPLAY):
         for r in self.routes:
-            pygame.draw.lines(screen, tile_info.BLACK, False, [self.tile.rect.center] + [x.rect.center for x in r.route], 3)
+            pygame.draw.lines(screen, tile_info.BLACK, False, [self.tile.rect.center] + [x.rect.center for x in r.route], 5)
             pygame.draw.lines(screen, tile_info.WHITE, False, [self.tile.rect.center] + [x.rect.center for x in r.route], 1)
 
         if not _FAST_DISPLAY:
@@ -987,7 +997,7 @@ def main():
 
         #DRAW
         t_display = time.time()
-        if not parameters.FAST_DISPLAY or (parameters.FAST_DISPLAY and step_counter%5 == 0):
+        if not parameters.FAST_DISPLAY or (parameters.FAST_DISPLAY and step_counter%1 == 0):
             for cp in parameters.MAP_TILES:
                 if cp != selected_tile and cp.selected:
                     cp.selected = False
@@ -1178,7 +1188,7 @@ def main():
             shift = shift + fontsize
 
         #Blit and Flip surfaces
-        if not parameters.FAST_DISPLAY or (parameters.FAST_DISPLAY and step_counter%5 == 0):
+        if not parameters.FAST_DISPLAY or (parameters.FAST_DISPLAY and step_counter%1 == 0):
             window.blit(screen, (0, 0))
             window.blit(alpha_surface, (0, 0))
         window.blit(info_surface, (main_surface_width, 0))
