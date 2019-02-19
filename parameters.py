@@ -51,8 +51,10 @@ class Parameters(object):
         self.TOWN_LIST    = []
         self.CITY_LIST    = []
 
-        self.NB_RIVERS = random.randint(35, 55)
-        self.RIVERS = []
+        self.RIVER_STARTERS = ["mountain"]
+        self.RIVER_ENDERS   = ["shallow_water", "deep_water"]
+        self.NB_RIVERS      = 0
+        self.RIVERS         = []
 
         self.MIN_TILE_SCORE = 0.0
         self.MAX_TILE_SCORE = 0.0
@@ -82,6 +84,22 @@ class Parameters(object):
         self.HEATMAP_TYPE = 0
         self.HEATMAP_ALPHA = 255
 
-    # def resize_window_from_canvas():
-    #   MAP_WIDTH = int(round(MAP_WIDTH/CANVAS_WIDTH)) * CANVAS_WIDTH
-    #   MAP_HEIGHT = int(round(MAP_HEIGHT/CANVAS_HEIGHT)) * CANVAS_HEIGHT
+    def computeNbRivers(self):
+        nb_tile_river_starter = 0
+        nb_tile_river_ender   = 0
+        for mt in self.MAP_TILES:
+            if mt.getType() in self.RIVER_STARTERS:
+                nb_tile_river_starter += 1
+            if mt.getType() in self.RIVER_ENDERS:
+                nb_tile_river_ender += 1
+        if nb_tile_river_starter == 0 or nb_tile_river_ender == 0:
+            self.NB_RIVERS = 0
+            return
+        base = min(nb_tile_river_starter, nb_tile_river_ender)
+        percent = random.random()*(0.05 - 0.02) + 0.02
+        self.NB_RIVERS = int(base*percent)
+        if self.NB_RIVERS < 10:
+            print "{} < 10, 10 RIVERS".format(self.NB_RIVERS)
+            self.NB_RIVERS = 10
+        else:
+            print "{} rivers ({}% out of {})".format(self.NB_RIVERS, percent, base)

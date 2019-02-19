@@ -705,7 +705,7 @@ def computeHeatMap_Cost():
 
     print("parameters.getInstance().MAX_TILE_COST={}".format(parameters.getInstance().MAX_TILE_COST))
 
-def generateRiver(starters = ["mountain"], enders=["shallow_water", "deep_water"]):
+def generateRiver(starters = parameters.getInstance().RIVER_STARTERS, enders=parameters.getInstance().RIVER_ENDERS):
     print("Generate rivers")
     river_starters = [x for x in parameters.getInstance().MAP_TILES if x.getType() in starters]
     start = random.choice(river_starters)
@@ -965,6 +965,7 @@ def main():
         if simulation_started:
             if not fixed:
                 fix_tiles()
+                parameters.getInstance().computeNbRivers()
                 for i in range(0, parameters.getInstance().NB_RIVERS):
                     generateRiver()
                 fixed = True
