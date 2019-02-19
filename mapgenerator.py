@@ -712,10 +712,10 @@ def generateRiver(starters = parameters.getInstance().RIVER_STARTERS, enders=par
 
     l_river_enders = [x for x in parameters.getInstance().MAP_TILES if (utils.distance2p(start.get2DCoord(), x.get2DCoord()) <= 30.0 and x.getType() in enders and set([y.getType() for y in utils.getNeighboursFrom1D(elem_i=x.index, eight_neigh=False)]).intersection(set(tile_info.LAND_TYPES)) == set([]) )]
 
-    end = random.choice(l_river_enders)
-
     if l_river_enders == [] or river_starters == []:
         return []
+
+    end = random.choice(l_river_enders)
 
     _route = [start] + pf.astar(start, end, diagonal_neighbourhood=True)
     route = []

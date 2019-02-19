@@ -19,7 +19,7 @@ class Parameters(object):
         
     def init(self):
         self.MAP_TILES              = []
-        self.CANVAS_SIZE            = 120
+        self.CANVAS_SIZE            = 200
         self.CANVAS_WIDTH           = self.CANVAS_SIZE
         self.CANVAS_HEIGHT          = self.CANVAS_SIZE
 
