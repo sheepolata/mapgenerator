@@ -10,7 +10,7 @@ def heuristic_cost_estimate(_current, _goal):
     return res
 
 #start and goal are tiles
-def astar(_start, _goal, maptiles=parameters.MAP_TILES, forbidden=[], diagonal_neighbourhood=True):
+def astar(_start, _goal, maptiles=parameters.getInstance().MAP_TILES, forbidden=[], diagonal_neighbourhood=True):
     # The set of nodes already evaluated
     closedSet = []
 
@@ -59,7 +59,7 @@ def astar(_start, _goal, maptiles=parameters.MAP_TILES, forbidden=[], diagonal_n
         closedSet.append(current)
 
         #For each neighbours of current
-        for _neighbour in utils.getNeighboursFrom1D(current.index, maptiles, parameters.CANVAS_WIDTH, parameters.CANVAS_HEIGHT, eight_neigh=diagonal_neighbourhood):
+        for _neighbour in utils.getNeighboursFrom1D(current.index, maptiles, parameters.getInstance().CANVAS_WIDTH, parameters.getInstance().CANVAS_HEIGHT, eight_neigh=diagonal_neighbourhood):
             if _neighbour in closedSet:
                 continue
 
@@ -104,7 +104,7 @@ def computePathLength(path):
         res = res + path[i].getCost()
     return res
 
-def getPathLength(tile1, tile2, maptiles=parameters.MAP_TILES, forbidden=[], approx=False):
+def getPathLength(tile1, tile2, maptiles=parameters.getInstance().MAP_TILES, forbidden=[], approx=False):
     if approx:
         res = utils.distance2p(tile1.getPose(), tile2.getPose())
     #OLD

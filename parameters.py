@@ -4,54 +4,84 @@
 import tile_info
 import random
 
-#GLOBAL VARS
-MAP_TILES              = []
-CANVAS_WIDTH           = 100
-CANVAS_HEIGHT          = 100
-WINDOW_WIDTH           = 1200
-WINDOW_HEIGHT          = 700
-MAIN_WINDOW_PROPORTION = 0.75
+instance = None
 
-CARAVAN_LIST        = []
-STARTING_NB_CARAVAN = 2
-MIN_POP_PER_CARAVAN = 50.0
-MAX_POP_PER_CARAVAN = 150.0
+def getInstance():
+    global instance
+    if instance == None:
+        instance = Parameters()
+    return instance
 
-MIGRANTS_VILLAGE_LIST = []
+class Parameters(object):
+    """docstring for Parameters"""
+    def __init__(self):
+        self.init()
+        
+    def init(self):
+        self.MAP_TILES              = []
+        self.CANVAS_SIZE            = 100
+        self.CANVAS_WIDTH           = self.CANVAS_SIZE
+        self.CANVAS_HEIGHT          = self.CANVAS_SIZE
 
-EMISSARY_VILLAGE_LIST = []
+        self.MAP_WIDTH              = 900
+        self.MAP_HEIGHT             = 700
 
-VILLAGE_LIST = []
-TOWN_LIST    = []
-CITY_LIST    = []
+        self.MAP_WIDTH = int(round(self.MAP_WIDTH/self.CANVAS_WIDTH)) * self.CANVAS_WIDTH
+        self.MAP_HEIGHT = int(round(self.MAP_HEIGHT/self.CANVAS_HEIGHT)) * self.CANVAS_HEIGHT
 
-NB_RIVERS = random.randint(35, 55)
-RIVERS = []
+        self.INFO_WIDTH             = 320
+        # INFO_HEIGHT            = 700
+        self.INFO_HEIGHT            = self.MAP_HEIGHT
 
-MIN_TILE_SCORE = 0.0
-MAX_TILE_SCORE = 0.0
+        self.WINDOW_WIDTH           = self.MAP_WIDTH + self.INFO_WIDTH
+        self.WINDOW_HEIGHT          = self.MAP_HEIGHT
 
-REFRESH_FREQ = 20
-FORCED_FPS   = 30
+        self.MAIN_WINDOW_PROPORTION = 0.75
 
-GEN_ONLY = False
+        self.CARAVAN_LIST        = []
+        self.STARTING_NB_CARAVAN = 0
+        self.MIN_POP_PER_CARAVAN = 50.0
+        self.MAX_POP_PER_CARAVAN = 150.0
 
-DEFAULT_DRAWING = False
-# BIOME = tile_info.LANDSCAPE_TEST
-BIOME = tile_info.LANDSCAPE_DEFAULT
-# BIOME = tile_info.LANDSCAPE_ISLANDS
-# BIOME = tile_info.LANDSCAPE_MOUNTAINS
-if not DEFAULT_DRAWING:
-	COLOR_PALETTE = BIOME.keys()
-	COLOR_PROBA   = BIOME.values()
-else:
-	COLOR_PALETTE = tile_info.LANDSCAPE_COLOR_LIST 
-# COLOR_PROBA   = None
-MAX_TILE_COST = 0.0
+        self.MIGRANTS_VILLAGE_LIST = []
 
-FAST_DISPLAY = False
+        self.EMISSARY_VILLAGE_LIST = []
 
-EIGHT_NEIGHBOURS = True
+        self.VILLAGE_LIST = []
+        self.TOWN_LIST    = []
+        self.CITY_LIST    = []
 
-HEATMAP_TYPE = 0
-HEATMAP_ALPHA = 255
+        self.NB_RIVERS = random.randint(35, 55)
+        self.RIVERS = []
+
+        self.MIN_TILE_SCORE = 0.0
+        self.MAX_TILE_SCORE = 0.0
+
+        self.REFRESH_FREQ = 20
+        self.FORCED_FPS   = 30
+
+        self.GEN_ONLY = False
+
+        self.DEFAULT_DRAWING = False
+        # BIOME = tile_info.LANDSCAPE_TEST
+        self.BIOME = tile_info.LANDSCAPE_DEFAULT
+        # BIOME = tile_info.LANDSCAPE_ISLANDS
+        # BIOME = tile_info.LANDSCAPE_MOUNTAINS
+        if not self.DEFAULT_DRAWING:
+            self.COLOR_PALETTE = self.BIOME.keys()
+            self.COLOR_PROBA   = self.BIOME.values()
+        else:
+            self.COLOR_PALETTE = tile_info.LANDSCAPE_COLOR_LIST 
+        # COLOR_PROBA   = None
+        self.MAX_TILE_COST = 0.0
+
+        self.FAST_DISPLAY = ((self.CANVAS_WIDTH * self.CANVAS_HEIGHT) > 100*100)
+
+        self.EIGHT_NEIGHBOURS = True
+
+        self.HEATMAP_TYPE = 0
+        self.HEATMAP_ALPHA = 255
+
+    # def resize_window_from_canvas():
+    #   MAP_WIDTH = int(round(MAP_WIDTH/CANVAS_WIDTH)) * CANVAS_WIDTH
+    #   MAP_HEIGHT = int(round(MAP_HEIGHT/CANVAS_HEIGHT)) * CANVAS_HEIGHT

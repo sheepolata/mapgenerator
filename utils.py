@@ -78,7 +78,7 @@ def lcm(a, b):
 def clamp(x, a, b):
     return max(a, min(x, b))
 
-def getNeighboursFrom1D(elem_i, list=parameters.MAP_TILES, grid_w=parameters.CANVAS_WIDTH, grid_h=parameters.CANVAS_HEIGHT, eight_neigh=parameters.EIGHT_NEIGHBOURS):
+def getNeighboursFrom1D(elem_i, list=parameters.getInstance().MAP_TILES, grid_w=parameters.getInstance().CANVAS_WIDTH, grid_h=parameters.getInstance().CANVAS_HEIGHT, eight_neigh=parameters.getInstance().EIGHT_NEIGHBOURS):
     neighbours = []
 
     #k = i * width + j. Thus i = k / width, j = k % width
@@ -180,7 +180,7 @@ def roughSemicirclePointsFromCenter(centre, size):
 
     return res
     
-def getEdgeTile(_list=parameters.MAP_TILES, grid_w=parameters.CANVAS_WIDTH, grid_h=parameters.CANVAS_HEIGHT, forbidden=[]):
+def getEdgeTile(_list=parameters.getInstance().MAP_TILES, grid_w=parameters.getInstance().CANVAS_WIDTH, grid_h=parameters.getInstance().CANVAS_HEIGHT, forbidden=[]):
     #k = i * width + j. Thus i = k / width, j = k % width
 
     _x, _y = 0, 0
@@ -214,7 +214,7 @@ def weighted_choice(weight_map):
     # print c, " ", values[c]
     return values[c]
 
-def getRandomTile(tilemap=parameters.MAP_TILES, p=None, forbidden=[]):
+def getRandomTile(tilemap=parameters.getInstance().MAP_TILES, p=None, forbidden=[]):
     if p == None:
         res = random.choice(tilemap)
         while res.getType() in forbidden:
