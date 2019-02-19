@@ -19,7 +19,7 @@ class Parameters(object):
         
     def init(self):
         self.MAP_TILES              = []
-        self.CANVAS_SIZE            = 100
+        self.CANVAS_SIZE            = 120
         self.CANVAS_WIDTH           = self.CANVAS_SIZE
         self.CANVAS_HEIGHT          = self.CANVAS_SIZE
 
@@ -29,7 +29,7 @@ class Parameters(object):
         self.MAP_WIDTH = int(round(self.MAP_WIDTH/self.CANVAS_WIDTH)) * self.CANVAS_WIDTH
         self.MAP_HEIGHT = int(round(self.MAP_HEIGHT/self.CANVAS_HEIGHT)) * self.CANVAS_HEIGHT
 
-        self.INFO_WIDTH             = 320
+        self.INFO_WIDTH             = 0
         # INFO_HEIGHT            = 700
         self.INFO_HEIGHT            = self.MAP_HEIGHT
 
